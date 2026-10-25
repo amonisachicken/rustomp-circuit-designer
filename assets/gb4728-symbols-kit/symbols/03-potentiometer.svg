@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 电位器 / Potentiometer | GB/T 4728.4 | 画布 30 x 22.5 mm (2.5 mm 栅格) | 引脚: (2.5,17.5) (20,5) (27.5,17.5) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="30mm" height="22.5mm" viewBox="0 0 30 22.5"><g transform="translate(15.0,17.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="-6" y="-2" width="12" height="4" />
+      <line x1="-12.5" y1="0" x2="-6" y2="0" />
+      <line x1="6" y1="0" x2="12.5" y2="0" />
+      <line x1="5" y1="-12.5" x2="5" y2="-7.5" />
+      <line x1="5" y1="-7.5" x2="0.35" y2="-2.35" />
+      <path d="M 0 -2 L 0.925 -4.134 L 2.035 -3.125 Z" fill="#0f172a" stroke="none" />
+      <g stroke="none" fill="#64748b" font-size="2.4" font-family="Consolas, monospace">
+        <text x="-11.6" y="-1.4">1</text>
+        <text x="5.9" y="-11.2">2</text>
+        <text x="11.6" y="-1.4" text-anchor="end">3</text>
+      </g>
+    </g>
+
+    
+    </svg>

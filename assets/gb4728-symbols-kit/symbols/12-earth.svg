@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 接地 / Ground | GB/T 4728.2 | 画布 15 x 22.5 mm (2.5 mm 栅格) | 引脚: (7.5,2.5) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="15mm" height="22.5mm" viewBox="0 0 15 22.5"><g transform="translate(7.5,15.0)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="0" y1="-12.5" x2="0" y2="0" />
+      <line x1="-5" y1="0" x2="5" y2="0" />
+      <line x1="-3" y1="2" x2="3" y2="2" />
+      <line x1="-1.5" y1="4" x2="1.5" y2="4" />
+    </g>
+
+    
+    </svg>

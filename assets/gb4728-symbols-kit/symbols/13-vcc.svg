@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Vcc 电源端 / Supply Vcc | GB/T 4728.3 | 画布 15 x 22.5 mm (2.5 mm 栅格) | 引脚: (7.5,20) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="15mm" height="22.5mm" viewBox="0 0 15 22.5"><g transform="translate(7.5,7.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="0" y1="12.5" x2="0" y2="0" />
+      <line x1="-4" y1="0" x2="4" y2="0" stroke-width="0.9" stroke-linecap="butt" />
+      <text x="0" y="-2.8" text-anchor="middle" stroke="none" fill="#0f172a" font-size="2.8" font-family="Consolas, monospace">Vcc</text>
+    </g>
+
+    
+    </svg>

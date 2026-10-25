@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+     xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+     width="297mm" height="210mm" viewBox="0 0 297 210" version="1.1"
+     id="gbt4728-sheet">
+  <sodipodi:namedview id="namedview" inkscape:document-units="mm" pagecolor="#ffffff"/>
+
+  <!-- 栅格：2.5 mm 细格 / 12.5 mm 粗格，图案原点固定在 (0,0)，故格线位于 2.5 的整数倍 -->
+  <defs>
+    <pattern id="grid" width="2.5" height="2.5" patternUnits="userSpaceOnUse">
+      <path d="M 2.5 0 L 0 0 L 0 2.5" fill="none" stroke="#e4eaf5" stroke-width="0.09"/>
+    </pattern>
+    <pattern id="grid5" width="12.5" height="12.5" patternUnits="userSpaceOnUse">
+      <path d="M 12.5 0 L 0 0 L 0 12.5" fill="none" stroke="#ccd8ec" stroke-width="0.11"/>
+    </pattern>
+  </defs>
+
+  <!-- ============ 图层：栅格 ============ -->
+  <g inkscape:groupmode="layer" inkscape:label="栅格" id="layer-grid">
+    <rect x="12.5" y="12.5" width="270" height="182.5" fill="url(#grid)"/>
+    <rect x="12.5" y="12.5" width="270" height="182.5" fill="url(#grid5)"/>
+  </g>
+
+  <!-- ============ 图层：图框与标题栏 ============ -->
+  <g inkscape:groupmode="layer" inkscape:label="图框" id="layer-frame"
+     fill="none" stroke="#0f172a" stroke-linecap="square">
+    <rect x="10" y="10" width="275" height="187.5" stroke-width="0.7"/>
+    <rect x="12.5" y="12.5" width="270" height="182.5" stroke-width="0.25"/>
+    <line x1="16" y1="40" x2="282.5" y2="40" stroke-width="0.45"/>
+    <line x1="16" y1="40" x2="58" y2="40" stroke-width="1.1"/>
+
+    <rect x="175" y="170" width="107.5" height="25" fill="#ffffff" stroke-width="0.6"/>
+    <line x1="175" y1="177.5" x2="282.5" y2="177.5" stroke-width="0.3"/>
+    <line x1="175" y1="185" x2="282.5" y2="185" stroke-width="0.3"/>
+  </g>
+
+  <!-- ============ 图层：图面文字 ============ -->
+  <g inkscape:groupmode="layer" inkscape:label="图面文字" id="layer-text"
+     font-family="Microsoft YaHei, Noto Sans CJK SC, SimHei, sans-serif">
+    <text x="16" y="24.5" font-size="8.6" font-weight="700" letter-spacing="0.5" fill="#0f172a">常用电子元器件图形符号</text>
+    <text x="16" y="31.6" font-size="3.4" fill="#64748b">Schematic Symbols for Common Electronic Components</text>
+
+    <g text-anchor="end">
+      <text x="280" y="21.5" font-size="5.2" font-weight="700" fill="#0f172a">GB/T 4728</text>
+      <text x="280" y="28" font-size="3.2" fill="#475569">电气简图用图形符号</text>
+      <text x="280" y="33" font-size="3" fill="#94a3b8">idt IEC 60617</text>
+    </g>
+
+    <g font-size="2.7" fill="#475569">
+      <text x="16" y="176">说明  1. 图形符号依据 GB/T 4728《电气简图用图形符号》绘制，等同采用 IEC 60617；</text>
+      <text x="16" y="181.5">      2. 细线 0.45 mm、粗线 0.9 mm，比例 1:1，单位 mm，可直接作画图素材；</text>
+      <text x="16" y="187">      3. 全部引脚端点均落在 2.5 mm 栅格交点；电位器箭头为滑动端（2 端）；</text>
+      <text x="16" y="192.5">      4. 管脚字母 C/B/E、D/G/S、V+/V− 及电位器 1/2/3 仅作识别标注，不属于符号本体。</text>
+    </g>
+
+    <text x="179" y="175.5" font-size="3.5" font-weight="700" fill="#0f172a">常用电子元器件图形符号</text>
+    <text x="179" y="183.5" font-size="3" fill="#475569" font-family="Consolas, monospace">GB/T 4728.2 / .3 / .4 / .5 / .6 / .13</text>
+    <g font-size="2.9" fill="#64748b" font-family="Consolas, monospace">
+      <text x="179" y="192.5">A4 297×210  1:1  mm</text>
+      <text x="279.5" y="192.5" text-anchor="end">2026-10-24</text>
+    </g>
+  </g>
+
+  <!-- ============ 图层：图形符号 ============
+       坐标约定：每个符号以自身中心为原点，1 单位 = 1 mm，不做缩放；
+       所有引脚端点坐标均为 2.5 的整数倍，故落在栅格交点上。 -->
+  <g inkscape:groupmode="layer" inkscape:label="图形符号" id="layer-symbols"
+     fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- [01] 电阻器：矩形 12×4（3:1），引脚 ±12.5 -->
+    <g inkscape:label="01 电阻器" transform="translate(35,60)">
+      <rect x="-6" y="-2" width="12" height="4"/>
+      <line x1="-12.5" y1="0" x2="-6" y2="0"/>
+      <line x1="6" y1="0" x2="12.5" y2="0"/>
+    </g>
+
+    <!-- [02] 电容器（无极）：极板间距 2.5 -->
+    <g inkscape:label="02 电容器" transform="translate(80,60)">
+      <line x1="-1.25" y1="-5" x2="-1.25" y2="5"/>
+      <line x1="1.25" y1="-5" x2="1.25" y2="5"/>
+      <line x1="-12.5" y1="0" x2="-1.25" y2="0"/>
+      <line x1="1.25" y1="0" x2="12.5" y2="0"/>
+    </g>
+
+    <!-- [03] 电位器：滑动端引脚 (5,-12.5) -->
+    <g inkscape:label="03 电位器" transform="translate(125,60)">
+      <rect x="-6" y="-2" width="12" height="4"/>
+      <line x1="-12.5" y1="0" x2="-6" y2="0"/>
+      <line x1="6" y1="0" x2="12.5" y2="0"/>
+      <line x1="5" y1="-12.5" x2="5" y2="-7.5"/>
+      <line x1="5" y1="-7.5" x2="0.35" y2="-2.35"/>
+      <path d="M 0 -2 L 0.925 -4.134 L 2.035 -3.125 Z" fill="#0f172a" stroke="none"/>
+      <g stroke="none" fill="#64748b" font-size="2.4"
+         font-family="Consolas, monospace">
+        <text x="-11.6" y="-1.4">1</text>
+        <text x="5.9" y="-11.2">2</text>
+        <text x="11.6" y="-1.4" text-anchor="end">3</text>
+      </g>
+    </g>
+
+    <!-- [04] 二极管 -->
+    <g inkscape:label="04 二极管" transform="translate(170,60)">
+      <path d="M -2.5 -4 L -2.5 4 L 2.5 0 Z"/>
+      <line x1="2.5" y1="-4" x2="2.5" y2="4"/>
+      <line x1="-12.5" y1="0" x2="-2.5" y2="0"/>
+      <line x1="2.5" y1="0" x2="12.5" y2="0"/>
+    </g>
+
+    <!-- [05] 发光二极管 -->
+    <g inkscape:label="05 发光二极管" transform="translate(215,60)">
+      <path d="M -2.5 -4 L -2.5 4 L 2.5 0 Z"/>
+      <line x1="2.5" y1="-4" x2="2.5" y2="4"/>
+      <line x1="-12.5" y1="0" x2="-2.5" y2="0"/>
+      <line x1="2.5" y1="0" x2="12.5" y2="0"/>
+      <line x1="-1.4" y1="-5.9" x2="1.75" y2="-9.05"/>
+      <path d="M 2.1 -9.4 L 1.110 -7.278 L -0.022 -8.410 Z" fill="#0f172a" stroke="none"/>
+      <line x1="0.6" y1="-4.4" x2="3.75" y2="-7.55"/>
+      <path d="M 4.1 -7.9 L 3.110 -5.778 L 1.978 -6.910 Z" fill="#0f172a" stroke="none"/>
+    </g>
+
+    <!-- [06] 电压源（理想）：圆形 + 正负号，引脚 (0,∓12.5) -->
+    <g inkscape:label="06 电压源" transform="translate(260,60)">
+      <circle cx="0" cy="0" r="7.5"/>
+      <line x1="0" y1="-12.5" x2="0" y2="-7.5"/>
+      <line x1="0" y1="7.5" x2="0" y2="12.5"/>
+      <g stroke-width="0.5" stroke-linecap="round">
+        <line x1="-1.5" y1="-3.4" x2="1.5" y2="-3.4"/>
+        <line x1="0" y1="-4.9" x2="0" y2="-1.9"/>
+        <line x1="-1.5" y1="3.4" x2="1.5" y2="3.4"/>
+      </g>
+    </g>
+
+    <!-- [07] NPN 型晶体管：B(-12.5,0)、C(2.5,-12.5)、E(2.5,12.5) -->
+    <g inkscape:label="07 NPN" transform="translate(42.5,102.5)">
+      <circle cx="0" cy="0" r="8.4"/>
+      <line x1="-4" y1="-3" x2="-4" y2="3" stroke-width="0.9" stroke-linecap="butt"/>
+      <line x1="-12.5" y1="0" x2="-4" y2="0"/>
+      <line x1="-4" y1="-1.5" x2="2.5" y2="-8"/>
+      <line x1="2.5" y1="-8" x2="2.5" y2="-12.5"/>
+      <line x1="-4" y1="1.5" x2="2.5" y2="8"/>
+      <line x1="2.5" y1="8" x2="2.5" y2="12.5"/>
+      <path d="M 1.3 6.8 L -0.786 5.774 L 0.274 4.714 Z" fill="#0f172a" stroke="none"/>
+      <g stroke="none" fill="#64748b" font-size="2.4"
+         font-family="Consolas, monospace" text-anchor="start">
+        <text x="3.6" y="-10.8">C</text>
+        <text x="-11.7" y="-1.4">B</text>
+        <text x="3.6" y="12.1">E</text>
+      </g>
+    </g>
+
+    <!-- [08] PNP 型晶体管 -->
+    <g inkscape:label="08 PNP" transform="translate(95,102.5)">
+      <circle cx="0" cy="0" r="8.4"/>
+      <line x1="-4" y1="-3" x2="-4" y2="3" stroke-width="0.9" stroke-linecap="butt"/>
+      <line x1="-12.5" y1="0" x2="-4" y2="0"/>
+      <line x1="-4" y1="-1.5" x2="2.5" y2="-8"/>
+      <line x1="2.5" y1="-8" x2="2.5" y2="-12.5"/>
+      <line x1="-4" y1="1.5" x2="2.5" y2="8"/>
+      <line x1="2.5" y1="8" x2="2.5" y2="12.5"/>
+      <path d="M -3 2.5 L -0.914 3.526 L -1.974 4.586 Z" fill="#0f172a" stroke="none"/>
+      <g stroke="none" fill="#64748b" font-size="2.4"
+         font-family="Consolas, monospace" text-anchor="start">
+        <text x="3.6" y="-10.8">C</text>
+        <text x="-11.7" y="-1.4">B</text>
+        <text x="3.6" y="12.1">E</text>
+      </g>
+    </g>
+
+    <!-- [09] N 沟道结型场效应管：G(-12.5,0)、D(2.5,-12.5)、S(2.5,12.5) -->
+    <g inkscape:label="09 N-JFET" transform="translate(147.5,102.5)">
+      <line x1="0" y1="-5" x2="0" y2="5" stroke-width="0.9" stroke-linecap="butt"/>
+      <line x1="0" y1="-5" x2="2.5" y2="-5" stroke-linecap="butt"/>
+      <line x1="2.5" y1="-5" x2="2.5" y2="-12.5"/>
+      <line x1="0" y1="5" x2="2.5" y2="5" stroke-linecap="butt"/>
+      <line x1="2.5" y1="5" x2="2.5" y2="12.5"/>
+      <line x1="-12.5" y1="0" x2="-0.6" y2="0"/>
+      <path d="M -0.5 0 L -2.6 0.7 L -2.6 -0.7 Z" fill="#0f172a" stroke="none"/>
+      <g stroke="none" fill="#64748b" font-size="2.4"
+         font-family="Consolas, monospace" text-anchor="start">
+        <text x="3.4" y="-10.8">D</text>
+        <text x="-11.7" y="-1.4">G</text>
+        <text x="3.4" y="12.1">S</text>
+      </g>
+    </g>
+
+    <!-- [10] N 沟道增强型 MOSFET：G(-12.5,0)、D(5,-12.5)、S(5,12.5) -->
+    <g inkscape:label="10 N-MOS" transform="translate(200,102.5)">
+      <line x1="-4.5" y1="-5" x2="-4.5" y2="5"/>
+      <line x1="-12.5" y1="0" x2="-4.5" y2="0"/>
+      <line x1="-2.5" y1="-5" x2="-2.5" y2="-2.8" stroke-width="0.9" stroke-linecap="butt"/>
+      <line x1="-2.5" y1="-1.1" x2="-2.5" y2="1.1" stroke-width="0.9" stroke-linecap="butt"/>
+      <line x1="-2.5" y1="2.8" x2="-2.5" y2="5" stroke-width="0.9" stroke-linecap="butt"/>
+      <line x1="-2.5" y1="-5" x2="5" y2="-5" stroke-linecap="butt"/>
+      <line x1="5" y1="-5" x2="5" y2="-12.5"/>
+      <line x1="-2.5" y1="5" x2="5" y2="5" stroke-linecap="butt"/>
+      <line x1="5" y1="5" x2="5" y2="12.5"/>
+      <line x1="5" y1="0" x2="5" y2="5"/>
+      <line x1="5" y1="0" x2="-2.1" y2="0"/>
+      <path d="M -2.1 0 L 0.1 0.7 L 0.1 -0.7 Z" fill="#0f172a" stroke="none"/>
+      <g stroke="none" fill="#64748b" font-size="2.4"
+         font-family="Consolas, monospace" text-anchor="start">
+        <text x="6.0" y="-10.8">D</text>
+        <text x="-11.7" y="-1.4">G</text>
+        <text x="6.0" y="12.1">S</text>
+      </g>
+    </g>
+
+    <!-- [11] 运算放大器：输入(-15,±5)、输出(15,0)、正负电源(0,∓12.5) -->
+    <g inkscape:label="11 运算放大器" transform="translate(252.5,102.5)">
+      <path d="M -10 -8 L 10 0 L -10 8 Z"/>
+      <line x1="-15" y1="-5" x2="-10" y2="-5"/>
+      <line x1="-15" y1="5" x2="-10" y2="5"/>
+      <line x1="10" y1="0" x2="15" y2="0"/>
+      <line x1="0" y1="-4" x2="0" y2="-12.5"/>
+      <line x1="0" y1="4" x2="0" y2="12.5"/>
+      <g stroke-width="0.5" stroke-linecap="round">
+        <line x1="-9.2" y1="-5" x2="-6.8" y2="-5"/>
+        <line x1="-8" y1="-6.2" x2="-8" y2="-3.8"/>
+        <line x1="-9.2" y1="5" x2="-6.8" y2="5"/>
+      </g>
+      <g stroke="none" fill="#64748b" font-size="2.4"
+         font-family="Consolas, monospace" text-anchor="start">
+        <text x="1.4" y="-10.9">V+</text>
+        <text x="1.4" y="12.1">V−</text>
+      </g>
+    </g>
+
+    <!-- [12] 接地：三条递减横线，引脚 (0,-12.5) -->
+    <g inkscape:label="12 接地" transform="translate(42.5,145)">
+      <line x1="0" y1="-12.5" x2="0" y2="0"/>
+      <line x1="-5" y1="0" x2="5" y2="0"/>
+      <line x1="-3" y1="2" x2="3" y2="2"/>
+      <line x1="-1.5" y1="4" x2="1.5" y2="4"/>
+    </g>
+
+    <!-- [13] Vcc：横杠电源端，引脚 (0,12.5) 朝下 -->
+    <g inkscape:label="13 Vcc" transform="translate(95,145)">
+      <line x1="0" y1="12.5" x2="0" y2="0"/>
+      <line x1="-4" y1="0" x2="4" y2="0" stroke-width="0.9" stroke-linecap="butt"/>
+      <text x="0" y="-2.8" text-anchor="middle" stroke="none" fill="#0f172a"
+            font-size="2.8" font-family="Consolas, monospace">Vcc</text>
+    </g>
+
+    <!-- [14] Vee：横杠电源端，引脚 (0,-12.5) 朝上 -->
+    <g inkscape:label="14 Vee" transform="translate(147.5,145)">
+      <line x1="0" y1="-12.5" x2="0" y2="0"/>
+      <line x1="-4" y1="0" x2="4" y2="0" stroke-width="0.9" stroke-linecap="butt"/>
+      <text x="0" y="4.9" text-anchor="middle" stroke="none" fill="#0f172a"
+            font-size="2.8" font-family="Consolas, monospace">Vee</text>
+    </g>
+
+    <!-- [15] In 节点：端口旗标，尖端朝右，引脚 (-12.5,0) -->
+    <g inkscape:label="15 In 节点" transform="translate(200,145)">
+      <line x1="-12.5" y1="0" x2="-6" y2="0"/>
+      <path d="M -6 -5 L 2 -5 L 6 0 L 2 5 L -6 5 Z"/>
+      <text x="-2.2" y="0.95" text-anchor="middle" stroke="none" fill="#0f172a"
+            font-size="2.6" font-family="Consolas, monospace">In</text>
+    </g>
+
+    <!-- [16] Out 节点：端口旗标，与 In 同形，箭头指向信号流向 -->
+    <g inkscape:label="16 Out 节点" transform="translate(252.5,145)">
+      <line x1="-12.5" y1="0" x2="-6" y2="0"/>
+      <path d="M -6 -5 L 2 -5 L 6 0 L 2 5 L -6 5 Z"/>
+      <text x="-2" y="0.95" text-anchor="middle" stroke="none" fill="#0f172a"
+            font-size="2.6" font-family="Consolas, monospace">Out</text>
+    </g>
+  </g>
+
+  <!-- ============ 图层：符号标注 ============ -->
+  <g inkscape:groupmode="layer" inkscape:label="符号标注" id="layer-labels"
+     text-anchor="middle" font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+
+    <g font-family="Consolas, monospace" font-size="3.2" fill="#8896ab">
+      <text x="35"    y="46">01</text>
+      <text x="80"    y="46">02</text>
+      <text x="125"   y="46">03</text>
+      <text x="170"   y="46">04</text>
+      <text x="215"   y="46">05</text>
+      <text x="260"   y="46">06</text>
+      <text x="42.5"  y="88.5">07</text>
+      <text x="95"    y="88.5">08</text>
+      <text x="147.5" y="88.5">09</text>
+      <text x="200"   y="88.5">10</text>
+      <text x="252.5" y="88.5">11</text>
+      <text x="42.5"  y="131">12</text>
+      <text x="95"    y="131">13</text>
+      <text x="147.5" y="131">14</text>
+      <text x="200"   y="131">15</text>
+      <text x="252.5" y="131">16</text>
+    </g>
+
+    <g font-size="4.6" font-weight="600" fill="#0f172a">
+      <text x="35"    y="78">电阻器</text>
+      <text x="80"    y="78">电容器（无极）</text>
+      <text x="125"   y="78">电位器</text>
+      <text x="170"   y="78">二极管</text>
+      <text x="215"   y="78">发光二极管</text>
+      <text x="260"   y="78">电压源</text>
+      <text x="42.5"  y="120.5">NPN 型晶体管</text>
+      <text x="95"    y="120.5">PNP 型晶体管</text>
+      <text x="147.5" y="120.5">N 沟道结型场效应管</text>
+      <text x="200"   y="120.5">N 沟道增强型 MOSFET</text>
+      <text x="252.5" y="120.5">运算放大器</text>
+      <text x="42.5"  y="163">接地</text>
+      <text x="95"    y="163">Vcc 电源端</text>
+      <text x="147.5" y="163">Vee 电源端</text>
+      <text x="200"   y="163">In 节点</text>
+      <text x="252.5" y="163">Out 节点</text>
+    </g>
+
+    <g font-size="2.8" fill="#94a3b8" font-family="Consolas, monospace">
+      <text x="35"    y="82">GB/T 4728.4</text>
+      <text x="80"    y="82">GB/T 4728.4</text>
+      <text x="125"   y="82">GB/T 4728.4</text>
+      <text x="170"   y="82">GB/T 4728.5</text>
+      <text x="215"   y="82">GB/T 4728.5</text>
+      <text x="260"   y="82">GB/T 4728.6</text>
+      <text x="42.5"  y="124.5">GB/T 4728.5</text>
+      <text x="95"    y="124.5">GB/T 4728.5</text>
+      <text x="147.5" y="124.5">GB/T 4728.5</text>
+      <text x="200"   y="124.5">GB/T 4728.5</text>
+      <text x="252.5" y="124.5">GB/T 4728.13</text>
+      <text x="42.5"  y="167">GB/T 4728.2</text>
+      <text x="95"    y="167">GB/T 4728.3</text>
+      <text x="147.5" y="167">GB/T 4728.3</text>
+      <text x="200"   y="167">GB/T 4728.3</text>
+      <text x="252.5" y="167">GB/T 4728.3</text>
+    </g>
+  </g>
+</svg>

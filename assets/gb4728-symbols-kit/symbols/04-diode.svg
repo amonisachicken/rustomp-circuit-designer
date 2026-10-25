@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 二极管 / Diode | GB/T 4728.5 | 画布 30 x 15 mm (2.5 mm 栅格) | 引脚: (2.5,7.5) (27.5,7.5) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="30mm" height="15mm" viewBox="0 0 30 15"><g transform="translate(15.0,7.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M -2.5 -4 L -2.5 4 L 2.5 0 Z" />
+      <line x1="2.5" y1="-4" x2="2.5" y2="4" />
+      <line x1="-12.5" y1="0" x2="-2.5" y2="0" />
+      <line x1="2.5" y1="0" x2="12.5" y2="0" />
+    </g>
+
+    
+    </svg>

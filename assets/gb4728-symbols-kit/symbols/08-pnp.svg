@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PNP 型晶体管 / PNP Transistor | GB/T 4728.5 | 画布 27.5 x 35 mm (2.5 mm 栅格) | 引脚: (2.5,17.5) (17.5,5) (17.5,30) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="27.5mm" height="35mm" viewBox="0 0 27.5 35"><g transform="translate(15.0,17.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="0" cy="0" r="8.4" />
+      <line x1="-4" y1="-3" x2="-4" y2="3" stroke-width="0.9" stroke-linecap="butt" />
+      <line x1="-12.5" y1="0" x2="-4" y2="0" />
+      <line x1="-4" y1="-1.5" x2="2.5" y2="-8" />
+      <line x1="2.5" y1="-8" x2="2.5" y2="-12.5" />
+      <line x1="-4" y1="1.5" x2="2.5" y2="8" />
+      <line x1="2.5" y1="8" x2="2.5" y2="12.5" />
+      <path d="M -3 2.5 L -0.914 3.526 L -1.974 4.586 Z" fill="#0f172a" stroke="none" />
+      <g stroke="none" fill="#64748b" font-size="2.4" font-family="Consolas, monospace" text-anchor="start">
+        <text x="3.6" y="-10.8">C</text>
+        <text x="-11.7" y="-1.4">B</text>
+        <text x="3.6" y="12.1">E</text>
+      </g>
+    </g>
+
+    
+    </svg>

@@ -15,8 +15,19 @@ interface Document {
   sheet: Sheet;               // 目前只做单页；多页留字段
   parts: PlacedPart[];
   wires: Wire[];
+  switches: Switch[];         // 拓扑选择器（不生成元件，只决定导出哪些分支）
   texts: TextItem[];          // 注释、标题栏补充
   meta: { name: string; author?: string; notes?: string };
+}
+
+/** 开关：图纸元素 + 变体选择器（见决策 D-005） */
+interface Switch {
+  id: string;
+  ref: string;                // SW1
+  labels: { zh: string; en?: string };   // "削波模式"
+  states: { id: string; label: string }[];  // [{id:"A",label:"非对称"},{id:"B",label:"对称"}]
+  /** 每掷的触点对（用于画图与 lint，不参与网表） */
+  throws: string[][];         // [[ "1","2" ], [ "2","3" ]]
 }
 
 interface Sheet {
@@ -35,6 +46,8 @@ interface PlacedPart {
   rot: 0 | 90 | 180 | 270;
   mirror: "none" | "x" | "y";
   pins: Record<string, Net>;  // ← 可选：仅"命名网络"用；默认空，靠导线推
+  /** 条件存在：{ "SW1": "B" } —— 只在 SW1=B 的分支里出现（决策 D-005） */
+  present?: Record<string, string>;
   fields?: { showValue: boolean; showRef: boolean; showModel: boolean };
 }
 
@@ -42,6 +55,8 @@ interface Wire {
   id: string;
   points: { x: number; y: number }[];  // 折点，≥2；坐标吸附到栅格
   net?: string;                        // 显式网络名（可选）
+  /** 条件导线：{ "SW1": "B" } —— 该分支才连（用来表达"短接某元件"） */
+  present?: Record<string, string>;
 }
 
 type Net = string;            // 网络名（"n$1" 自动 / "IN" 手动）
@@ -89,6 +104,38 @@ type Net = string;            // 网络名（"n$1" 自动 / "IN" 手动）
 
 ---
 
+## 3.5 开关与分支（决策 D-005）
+
+开关**不生成电路元件**，它把**同一张图**变成 2ⁿ 份完整电路。
+
+| 概念 | 表达 |
+|---|---|
+| 开关 | `switches[]`：id / 参考编号 / 显示名 / 2..3 个状态 / 触点对（画图用） |
+| 只在某状态存在的元件 | `parts[].present = { SW1: "B" }` |
+| 只在某状态连通的导线（短接） | `wires[].present = { SW1: "B" }` |
+| 分支 | 开关状态的**组合**：n 个开关 → 2ⁿ 个组合（每个开关假定两态） |
+
+导出时：
+
+```text
+for combo in enum_combos(switches):          # 2^n
+    doc_branch = filter(doc, combo)          # 丢掉 present 不满足条件、或条件冲突的元素/导线
+    netlist(combo) = to_spice(doc_branch)    # 每份都是**完整电路**
+```
+
+约束（编辑器要在 UI 里就挡住）：
+
+- **n ≤ 3**（最多 8 份）；超过直接拒绝并提示原因（编译时间/内存）；
+- 某组合下若"电路不成立"（例如电源被断开、没有输出端口），标红该组合但**不阻止导出其它组合**；
+- 开关**不能**出现在电源/地路径上（会造成"没供电的分支"）→ lint error；
+- **true-bypass / 脚踏开关不属于开关**：它是 `Engine` 的旁通，图纸里用注释或专用符号标注，
+  不参与分支枚举。
+
+> 这一节是与 rustomp 生成器的**唯一**分歧点：生成的代码不是"一个带 bool 参数的电路"，
+> 而是"2ⁿ 个电路 + 插件层选择"。rustomp 侧的同步事项见 `docs/00-decisions.md` 末表。
+
+---
+
 ## 4. 连通性：并查集
 
 ```text
@@ -103,6 +150,9 @@ type Net = string;            // 网络名（"n$1" 自动 / "IN" 手动）
    - 否则自动命名 n1 / n2 …（按最小坐标排序，保证确定性）
 5) 接地符号（earth）→ 网络名固定为 "0"
 ```
+
+**注意：连通性要按分支各算一次** —— 条件导线只在对应分支里参与 union，
+所以 2ⁿ 个分支会得到 2ⁿ 份不同的网络表（这正是"每份都是完整电路"的含义）。
 
 **为什么不"编辑时实时合并节点"**：
 面包板那样边拖边并会引入大量中间状态，撤销重做会变得很脏。
@@ -158,7 +208,8 @@ type Command =
 | 文件 | 内容 | 用途 |
 |---|---|---|
 | `*.design.json` | `Document`（§1） | **编辑器的原生格式**，可版本化、可 diff |
-| `*.cir` | SPICE 网表 + `* @rustomp` 指令 | 交给 `rustomp-import`；可被 ngspice 直接仿真 |
+| `branch_*/branch_N.cir` | SPICE 网表 + `* @rustomp` 指令（每分支一份） | 交给 `rustomp-import`；可被 ngspice 直接仿真 |
+| `branches.json` | 分支索引：开关组合 → 分支文件 + 端口 | 插件层据此选择分支 |
 | `*.svg` | 图纸导出（栅格 + 符号 + 标注） | 打印/分享 |
 | `*.netlist.json` | 网表的结构化形式（元件/网络/端口） | 调试、其它工具消费 |
 

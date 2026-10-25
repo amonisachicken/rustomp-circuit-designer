@@ -46,7 +46,8 @@
 │  ├─ server.rs        路由：/rpc（JSON-RPC）、/events（WS）              │
 │  ├─ protocol.rs      请求/响应/事件类型（与前端 protocol.ts 一一对应）   │
 │  ├─ domain.rs        文档模型（与前端 domain.ts 一一对应）               │
-│  ├─ netlist.rs       **文档 → SPICE 网表 + @rustomp 指令**（核心）       │
+│  ├─ netlist.rs       **文档 → SPICE 网表 + @rustomp 指令**（核心，按分支各算一份）
+│  ├─ branches.rs      开关组合枚举 → 2ⁿ 份网表 + branches.json              │
 │  ├─ codegen.rs       调用 rustomp_import::mna_codegen → Rust 源码        │
 │  ├─ symbols.rs       读取 symbols.json（引脚元数据）                    │
 │  └─ lint.rs          电路检查（悬空引脚、多驱动、无地、重复编号…）        │
@@ -104,6 +105,7 @@ rustomp-circuit-designer/
 | **原理图画布** | 面包板是固定孔位 + 元件占位；原理图是自由放置 + 任意角度 + 导线折点 |
 | **导线/节点模型** | 面包板靠插孔自然并网；原理图必须显式做"导线重合 → 节点合并"（并查集） |
 | **网表生成器** | 面包板输出网表给 ngspice；这里还要输出 `* @rustomp` 指令与端口声明 |
+| **分支枚举** | 开关 → 2ⁿ 份完整网表（决策 D-005）；面包板没有这个概念 |
 | **符号清单 `symbols.json`** | breadspice 的元件是 JS 写死的；这里必须数据驱动（`docs/04`） |
 | **lint** | 悬空引脚、同网多驱动、无地、重复参考编号、电位器未接线等 |
 
@@ -118,7 +120,8 @@ rustomp-circuit-designer/
 | 方法 | 入参 | 出参 |
 |---|---|---|
 | `designer.symbols` | — | `SymbolManifest`（`symbols.json` 的运行时视图） |
-| `designer.netlist` | `Document` | `{ netlist: String, notes: String[], warnings: LintWarning[] }` |
+| `designer.branches` | `Document` | `{ branches: [{ index, combo, netlist }], index_json: String, warnings }` |
+| `designer.netlist` | `Document`（可选 combo） | `{ netlist: String, notes: String[], warnings: LintWarning[] }` |
 | `designer.codegen` | `Document` + `CodegenOptions` | `{ code: String, unknowns: usize, notes: String[] }` |
 | `designer.lint` | `Document` | `LintWarning[]` |
 | `designer.simulate`（可选） | `Document` + `SimOptions` | 同 breadspice 的仿真结果 |

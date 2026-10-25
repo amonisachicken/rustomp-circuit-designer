@@ -3,6 +3,9 @@
 > 这是设计器**唯一**的对外契约。下游（`rustomp-import --mna` → 生成的电路 → 插件）
 > 只认这份东西，所以它必须稳定、可读、可被 ngspice 直接验证。
 >
+> **产物是多份网表**：一张图有 n 个开关时导出 **2ⁿ 份**（决策 D-005），
+> 每份都是完整电路；开关本身不产生任何元件。
+>
 > 规范的另一半在 rustomp 仓库：`docs/circuit-import.md` §6.5/§10、
 > `docs/declarative-build.md` §3.4/§3.6。**改动必须两边同时记档。**
 
@@ -45,7 +48,10 @@ Q1 c b 0 BC549C
 |---|---|---|
 | 端口 | `in=<源名> out=<节点名>` | `pub const IN/OUT`、`FIXED_IN` |
 | 电位器 | `param <元素> <字段> pot max=<阻值> [invert]` | `Params.<字段>: f64`，`R = max·t`（`invert` ⇒ `max·(1−t)`） |
-| 开关 | `switch <字段> <节点A> <节点B> closed=<r> open=<r>` | `Params.<字段>: bool` + 一只可切换电阻 |
+
+> **没有 `switch` 指令**。开关不生成元件（决策 D-005）：它把图变成 2ⁿ 份网表，
+> 每份都写成完整的普通电路。rustomp 侧现存的 `switch` 指令属 legacy，
+> 新设计器不再生成它（同步事项见 `docs/00-decisions.md` 末表）。
 
 > 字段名必须是合法 Rust 标识符（`gain` / `level` / `symmetric`），
 > 生成器会校验，名字非法直接报错。
@@ -120,26 +126,69 @@ RP1B 2 3 <500k·(1−t)>
 
 ---
 
-## 6. 开关
+## 6. 开关 = 多分支导出（不是元件）
 
-`docs/06` 补符号之前，设计器用**通用开关**表达：
+一份图 + n 个开关 ⇒ **2ⁿ 份网表**，全部写进同一个目录：
 
-```spice
-* @rustomp switch SW1 symmetric c b closed=0.001 open=1e12
-SW1 闭合时把 c、b 短接
+```text
+out/
+├── branches.json                  # 组合索引（见 §6.2）
+├── branch_0/branch_0.cir          # 开关组合 (A,A,…) 的完整电路
+├── branch_1/branch_1.cir
+└── branch_2/branch_2.cir …
 ```
 
-生成器会新建一只可切换电阻（`closed` 时 1 mΩ、`open` 时 1 TΩ），
-所以**开关不需要单独的 SPICE 元件**，也不需要改 rustomp 的器件库。
+### 6.1 单个分支的生成规则
 
-多组触点（DPDT）在网表层面就是**多个开关 + 一个 `Params` 字段**：
-`switch mode c1 b1 …` 与 `switch mode c2 b2 …` 共用 `mode` 字段 → 生成器会把
-同一个字段写两次（当前实现只记录最后一个下标，D1 需要扩展为"一个字段 → 多个元件"）。
+```text
+for combo in 所有开关状态组合:              # 2^n
+    parts  = doc.parts.filter(p => p.present 满足 combo)   # 条件元件
+    wires  = doc.wires.filter(w => w.present 满足 combo)   # 条件导线（短接）
+    netlist(combo) = to_spice(parts, wires)                # 普通网表，无任何开关痕迹
+```
 
-> 这条已经写进 `docs/06` 的 D1 工作项：`mna_codegen` 需要支持"一个参数驱动多个元件"。
+- 每份网表**都能单独喂给 ngspice**、单独被 `rustomp-import --mna` 生成 `Ckt`；
+- **元件/节点编号必须稳定**：同一元件在不同分支里保持同一个参考编号（`R1` 永远是 `R1`），
+  网络名也按"该分支的实际几何"排，不因分支不同而改名 —— 否则 diff 与对拍都无法比较。
 
----
+### 6.2 分支索引 `branches.json`
 
+```jsonc
+{
+  "version": 1,
+  "switches": [
+    { "id": "SW1", "ref": "SW1", "labels": ["非对称", "对称"], "states": ["A", "B"] }
+  ],
+  "branches": [
+    { "index": 0, "combo": { "SW1": "A" }, "file": "branch_0/branch_0.cir",
+      "ports": { "in": "IN", "out": "OUT" }, "valid": true },
+    { "index": 1, "combo": { "SW1": "B" }, "file": "branch_1/branch_1.cir",
+      "ports": { "in": "IN", "out": "OUT" }, "valid": true }
+  ]
+}
+```
+
+插件层（VST/AU 交互层）只认这份索引：
+
+```rust
+enum Variant { B0, B1 }                 // 由生成器按 branches.json 产出
+```
+
+- 参数（开关旋钮/拨杆）→ `Variant`；
+- **只有当前分支在跑**，切换时交叉淡化（复用 `Engine` 旁通那套 15 样本对齐 + 5 ms 淡化）；
+- 各分支的 `Circuit` 类型可以不同（元件数不同），**不能**塞进同一个 `Netlist<N>` ——
+  所以每个分支各自是一个独立类型/模块。
+
+### 6.3 约束
+
+| 约束 | 处理 |
+|---|---|
+| n ≤ 3（≤ 8 份） | 超过直接拒绝，提示"开关数过多，请拆分插件" |
+| 开关不得出现在电源/地路径 | lint **error**（会产生"未供电"的无效分支） |
+| 某组合下电路不成立（无输出端口等） | 该组合标 `valid: false`，不阻止其它分支导出 |
+| true-bypass / 脚踏开关 | 不属于开关：由 `Engine` 旁通实现，图纸只做标注 |
+
+```
 ## 7. 生成 → 验证的闭环
 
 ```bash
@@ -172,6 +221,10 @@ cargo test --workspace
 | 重复参考编号 | error | 两个 `R1` |
 | 型号不在闭集 | error | 直接挡住（生成器也会挡，但这里要**提前**报） |
 | 电位器只接 2 脚且未选"变阻器" | warn | 容易画错 |
+| 开关数 > 3 | error | 分支爆炸（2ⁿ） |
+| 开关在电源/地路径上 | error | 会产生未供电分支 |
+| 某分支无输出端口 | warn | 该分支标 `valid:false` |
+| 条件元件/导线的状态组合不存在 | error | 条件写错了（如 `{SW1:"C"}` 但 SW1 只有 A/B） |
 | 电源引脚接反（V+ 接地 / V− 接 VCC） | warn | 单向电源电路的常见手误 |
 | 同一网络多个驱动源 | warn | 两个电压源并联 |
 | 运放未接电源 | warn | rustomp 的宏模型不要求接电源，但图纸应完整 |

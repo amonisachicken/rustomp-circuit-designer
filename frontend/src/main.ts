@@ -5,7 +5,7 @@ import { backend, type NetlistResult, type SimResult } from "./backend";
 import { drawWaveform } from "./plot";
 import { emptyDoc, snap, type Doc, type Part } from "./model";
 import { loadAllArt, loadArt, loadSymbols, type SymbolTable } from "./symbols";
-import { fitView, mmToScreen, render, screenToMm, type View } from "./render";
+import { fitView, hitTest, mmToScreen, render, screenToMm, type View } from "./render";
 import {
   cancel,
   commitPlace,
@@ -246,6 +246,18 @@ canvas.addEventListener("pointermove", (ev) => {
   hoverMm = screenToMm({ x: ev.clientX - r.left, y: ev.clientY - r.top }, view);
   if (panning) return;
 
+  // hover 高亮：把"当前 2×2 格内可点中的目标"标出来（不然用户不知道命中区多大）
+  if (mode.kind === "view" || mode.kind === "delete") {
+    const h = hitTest(doc, table, hoverMm);
+    const key = `${h.partId ?? ""}|${h.wireId ?? ""}`;
+    if (key !== hoverKey) {
+      hoverKey = key;
+      for (const n of canvas.querySelectorAll(".hovered")) n.classList.remove("hovered");
+      if (h.partId) canvas.querySelector(`[data-part-id="${h.partId}"]`)?.classList.add("hovered");
+      if (h.wireId) canvas.querySelector(`[data-wire-id="${h.wireId}"]`)?.classList.add("hovered");
+    }
+  }
+
   if (mode.kind === "place") mode = { ...mode, at: { x: snap(hoverMm.x), y: snap(hoverMm.y) } };
   if (mode.kind === "move" && mode.partId) {
     const id: string = mode.partId;
@@ -259,9 +271,22 @@ canvas.addEventListener("pointerdown", (ev) => {
   if (ev.button === 1) return;
   const r = canvas.getBoundingClientRect();
   const at = screenToMm({ x: ev.clientX - r.left, y: ev.clientY - r.top }, view);
-  const target = ev.target as Element;
-  const partId = target.closest("[data-part-id]")?.getAttribute("data-part-id") ?? null;
-  const wireId = target.closest("[data-wire-id]")?.getAttribute("data-wire-id") ?? null;
+  // 命中区 = 以鼠标为心 2×2 格（5 mm）的方框：细线/小符号也点得中
+  const hit = hitTest(doc, table, at);
+  const partId = hit.partId;
+  const wireId = hit.wireId;
+
+  // 双击检测：不依赖 DOM 的 dblclick（重画会把节点换掉，浏览器可能不发 dblclick）
+  const now = performance.now();
+  if (partId && lastClick.id === partId && now - lastClick.t < 400) {
+    lastClick = { id: null, t: 0 };
+    selectedId = partId;
+    selectPart(partId, true);
+    repaint();
+    ev.preventDefault();
+    return;
+  }
+  lastClick = { id: partId, t: now };
 
   // m 模式的第一下：拿起
   if (afterArmPick(partId)) return;
@@ -307,14 +332,10 @@ canvas.addEventListener("pointerdown", (ev) => {
   }
 });
 
-canvas.addEventListener("dblclick", (ev) => {
-  const partId = (ev.target as Element).closest("[data-part-id]")?.getAttribute("data-part-id") ?? null;
-  if (partId) {
-    selectedId = partId;
-    selectPart(partId, true);
-    repaint();
-  }
-});
+let hoverKey = "";
+
+/** 双击检测状态（见 pointerdown 里的注释） */
+let lastClick: { id: string | null; t: number } = { id: null, t: 0 };
 
 // ---------------------------------------------------------------- 平移 / 缩放
 
@@ -634,6 +655,41 @@ async function main(): Promise<void> {
   repaint();
   hooks.status("r 电阻 · c 电容 · 空格 元件库 · w 画线 · q 删除 · m 移动 · d 复制 · esc 退出 · 中键平移/滚轮缩放");
   repaint();
+
+  // 冒烟测试：?selftest=1 —— 验证"2×2 格命中区"与"双击开属性"
+  if (q.has("selftest")) {
+    const r = doc.parts.find((p) => p.symbol === "resistor");
+    // 取最右边那条导线（中点不会被某个元件的包围盒盖住）
+    const wire = [...doc.wires].sort((a, b) => Math.max(b.points[1].x, b.points[0].x) - Math.max(a.points[1].x, a.points[0].x))[0];
+    const results: string[] = [];
+    if (r && wire) {
+      const sym = table.symbols[r.symbol]!;
+      const center = { x: r.at.x, y: r.at.y };
+      // ① 命中区：离元件中心 4 mm（>2 格？2 格=5mm，故 4mm 内应命中）
+      const near = hitTest(doc, table, { x: center.x, y: center.y + 4 });
+      results.push(`hit4mm=${near.partId === r.id}`);
+      // ② 命中区外：离中心 8 mm 应落空
+      const far = hitTest(doc, table, { x: center.x, y: center.y + 12 });
+      results.push(`miss12mm=${far.partId !== r.id}`);
+      // ③ 导线也算命中
+      const mid = { x: (wire.points[0].x + wire.points[1].x) / 2, y: (wire.points[0].y + wire.points[1].y) / 2 };
+      // 往下偏 4 mm（避开元件的包围盒，仍在 2×2 格命中区内）
+      const w = hitTest(doc, table, { x: mid.x, y: mid.y - 4 });
+      results.push(`wire4mm=${w.wireId === wire.id}`);
+      // ④ 双击开属性（真实指针事件，坐标换算到屏幕）
+      const p0 = mmToScreen(center, view);
+      const rect = canvas.getBoundingClientRect();
+      const opt = { clientX: rect.left + p0.x, clientY: rect.top + p0.y, bubbles: true, button: 0 };
+      canvas.dispatchEvent(new PointerEvent("pointerdown", opt));
+      canvas.dispatchEvent(new PointerEvent("pointerup", opt));
+      canvas.dispatchEvent(new PointerEvent("pointerdown", opt));
+      const props = document.querySelector<HTMLElement>("#props");
+      results.push(`dblclick-props=${!!props && !props.hidden && !!props.querySelector("#p-ref")}`);
+      void sym;
+    }
+    const ok = results.every((x) => x.endsWith("=true"));
+    $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;
+  }
 
   // 调试开关：?sim=1 直接打开仿真弹窗（方便截图/排查）
   if (q.has("sim")) {

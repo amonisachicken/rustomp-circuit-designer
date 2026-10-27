@@ -44,49 +44,6 @@
       },
       "standard": "GB/T 4728.4"
     },
-    "dc-jack": {
-      "canvas": {
-        "h": 20.0,
-        "w": 25.0
-      },
-      "category": "connector",
-      "file": "assets/gb4728-ext/symbols/18-dc-jack.svg",
-      "models": [],
-      "name": {
-        "en": "DC Jack",
-        "zh": "DC 电源座"
-      },
-      "origin": {
-        "x": 12.5,
-        "y": 10.0
-      },
-      "pins": [
-        {
-          "at": {
-            "x": -10.0,
-            "y": -5.0
-          },
-          "dir": "left",
-          "id": "+"
-        },
-        {
-          "at": {
-            "x": -10.0,
-            "y": 5.0
-          },
-          "dir": "left",
-          "id": "-"
-        }
-      ],
-      "spice": {
-        "pinOrder": [
-          "+",
-          "-"
-        ],
-        "prefix": ""
-      },
-      "standard": "GB/T 4728.3（示意画法）"
-    },
     "diode": {
       "canvas": {
         "h": 15.0,
@@ -169,49 +126,6 @@
         "prefix": ""
       },
       "standard": "GB/T 4728.2"
-    },
-    "jack": {
-      "canvas": {
-        "h": 25.0,
-        "w": 25.0
-      },
-      "category": "connector",
-      "file": "assets/gb4728-ext/symbols/17-jack.svg",
-      "models": [],
-      "name": {
-        "en": "输出通用）",
-        "zh": "插孔（输入"
-      },
-      "origin": {
-        "x": 12.5,
-        "y": 12.5
-      },
-      "pins": [
-        {
-          "at": {
-            "x": -10.0,
-            "y": -2.5
-          },
-          "dir": "left",
-          "id": "1"
-        },
-        {
-          "at": {
-            "x": -10.0,
-            "y": 7.5
-          },
-          "dir": "left",
-          "id": "2"
-        }
-      ],
-      "spice": {
-        "pinOrder": [
-          "1",
-          "2"
-        ],
-        "prefix": ""
-      },
-      "standard": "GB/T 4728.3（示意画法）"
     },
     "jfet-n": {
       "canvas": {

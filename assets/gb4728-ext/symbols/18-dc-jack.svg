@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- DC 电源座 / DC Jack | GB/T 4728.3（示意画法） | 画布 25 x 20 mm (2.5 mm 栅格) | 引脚: (2.5,5) (2.5,15) -->
-<svg xmlns="http://www.w3.org/2000/svg" width="25mm" height="20mm" viewBox="0 0 25 20"><g transform="translate(12.5,10)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="0" cy="0" r="6" />
-      <circle cx="0" cy="0" r="2" fill="#0f172a" stroke="#0f172a" stroke-width="0.45" />
-      <line x1="-10" y1="-5" x2="-6" y2="-5" />
-      <line x1="-10" y1="5" x2="-6" y2="5" />
-    </g>
-</svg>

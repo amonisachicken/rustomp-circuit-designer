@@ -265,6 +265,77 @@ export function fitView(
   return { scale, pan: { x: viewport.w / 2 - cx * scale, y: viewport.h / 2 - cy * scale } };
 }
 
+/** 元件在画布上的包围盒（含图形画布，旋转/镜像后） */
+export function partBox(part: Part, sym: SymbolSpec): { minX: number; minY: number; maxX: number; maxY: number } {
+  const corners: Vec[] = [
+    { x: -sym.origin.x, y: -sym.origin.y },
+    { x: sym.canvas.w - sym.origin.x, y: -sym.origin.y },
+    { x: -sym.origin.x, y: sym.canvas.h - sym.origin.y },
+    { x: sym.canvas.w - sym.origin.x, y: sym.canvas.h - sym.origin.y },
+  ].map((c) => toWorld(c, part));
+  const xs = corners.map((c) => c.x);
+  const ys = corners.map((c) => c.y);
+  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+}
+
+/** 点到线段的距离（mm） */
+function distToSeg(p: Vec, a: Vec, b: Vec): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-12) return Math.hypot(p.x - a.x, p.y - a.y);
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/**
+ * 命中测试：**以鼠标为心、2×2 格（= 5 mm）的方框**为可触发区域（而不是要求正好点在细线上）。
+ * 返回最近的元件或导线。
+ */
+export function hitTest(
+  doc: Doc,
+  table: SymbolTable,
+  at: Vec,
+  tolMm = GRID * 2,
+): { partId: string | null; wireId: string | null } {
+  let bestPart: { id: string; d: number } | null = null;
+  let bestWire: { id: string; d: number } | null = null;
+
+  for (const part of doc.parts) {
+    const sym = table.symbols[part.symbol];
+    if (!sym) continue;
+    const b = partBox(part, sym);
+    // ① 图形"身上"：包围盒内缩 25%（避免旋转后的大空盒子把邻居全盖住）
+    const ix = (b.maxX - b.minX) * 0.25;
+    const iy = (b.maxY - b.minY) * 0.25;
+    const inner = { minX: b.minX + ix, maxX: b.maxX - ix, minY: b.minY + iy, maxY: b.maxY - iy };
+    const dBox = Math.hypot(
+      Math.max(inner.minX - at.x, 0, at.x - inner.maxX),
+      Math.max(inner.minY - at.y, 0, at.y - inner.maxY),
+    );
+    // ② 引脚附近也算命中（引脚才是真正要点的东西）
+    const dPin = Math.min(...sym.pins.map((p) => {
+      const w = toWorld(p.at, part);
+      return Math.hypot(w.x - at.x, w.y - at.y);
+    }));
+    const d = Math.min(dBox, dPin);
+    if (d <= tolMm && (bestPart === null || d < bestPart.d)) bestPart = { id: part.id, d };
+  }
+
+  for (const w of doc.wires) {
+    const d = distToSeg(at, w.points[0], w.points[1]);
+    if (d <= tolMm && (bestWire === null || d < bestWire.d)) bestWire = { id: w.id, d };
+  }
+
+  // 导线很细、更难点中：距离接近时（差 < 1 mm）优先导线
+  const preferWire = bestWire && (!bestPart || bestWire.d <= bestPart.d + 1.0);
+  return {
+    partId: preferWire ? null : (bestPart?.id ?? null),
+    wireId: preferWire ? bestWire!.id : null,
+  };
+}
+
 /** 元件所有引脚的世界坐标（网表/连线判定唯一来源） */
 export function pinWorld(part: Part, table: SymbolTable): { id: string; at: Vec }[] {
   const sym = table.symbols[part.symbol];

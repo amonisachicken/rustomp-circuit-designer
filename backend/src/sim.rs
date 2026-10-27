@@ -211,6 +211,11 @@ pub fn build_batch(
 
     // 探针：瞬态/AC/DC 一律要 .print，否则按 rawfile 收
     let probes = probes_of(ports, extra_probes);
+    // `.save`：`-r` 默认保存**所有**变量（每个节点电压 + 每个电源的电流），
+    // 只留下我们要的探针，否则图上会多出 i(vsim) 这类没人要的曲线。
+    if !probes.is_empty() && kind != AnalysisKind::Op {
+        out.push_str(&format!(".save {}\n", probes.join(" ")));
+    }
     if !probes.is_empty() && kind != AnalysisKind::Op {
         let kind_cmd = match kind {
             AnalysisKind::Tran => "tran",
@@ -414,7 +419,11 @@ pub fn run(req: &SimRequest, table: &SymbolTable) -> Result<SimResult, String> {
                 op = Some(map);
                 Vec::new()
             } else {
+                let want: Vec<String> = probes_of(&g.ports, &req.probes);
                 data.into_traces()
+                    .into_iter()
+                    .filter(|t| want.iter().any(|w| *w == t.name))
+                    .collect()
             };
             // THD：只在瞬态分析、且拿到 out 探针时算
             let thd = if req.analysis == AnalysisKind::Tran {

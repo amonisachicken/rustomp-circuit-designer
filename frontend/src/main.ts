@@ -787,7 +787,8 @@ function openScope(net: string, label?: string): void {
       xLabel: lastSim.analysis === "ac" ? "频率 Hz" : "时间 s",
       yLabel: lastSim.analysis === "ac" ? "幅度 dB" : "电压 V",
     });
-    $("#scopeStatus").textContent = `${label ? `${label} · ` : ""}示波器：v(${net})（${lastSim.analysis} 分析）`;
+    const kind = lastSim.analysis === "ac" ? "交流分析" : "瞬态分析";
+    $("#scopeStatus").textContent = `${label ? `${label} · ` : ""}v(${net}) · ${kind}`;
   }
   $<HTMLButtonElement>("#scopeFft").dataset["net"] = net;
   dlg.showModal();

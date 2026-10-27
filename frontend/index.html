@@ -18,7 +18,7 @@
       <button id="btnExport" title="导出 .design.json 到本地">导出布局</button>
       <button id="btnImport" title="从本地 .design.json 导入">导入布局</button>
       <input id="importFile" type="file" accept=".json,application/json" hidden />
-      <button id="btnSim" title="跑 ngspice 瞬态，看波形">仿真</button>
+      <button id="btnSim" title="运行仿真（瞬态 / 交流）">仿真</button>
       <button id="btnPreview" title="预览 = 生成可保存的截图">预览</button>
       <button id="btnNetlist" title="生成网表并下载 .cir">生成网表</button>
       <button id="btnCodegen" title="调 rustomp-import 生成 Rust 电路并下载">生成代码</button>
@@ -84,7 +84,7 @@
     </dialog>
 
     <dialog id="sim">
-      <h2>仿真（复用 breadspice 的核心：rawfile 通道）</h2>
+      <h2>仿真</h2>
       <p class="simparams">
         <label>分析
           <select id="simAnalysis">
@@ -116,7 +116,7 @@
       </div>
       <p id="simSemantics" class="muted"></p>
       <svg id="simPlot"></svg>
-      <details><summary>ngspice 日志</summary><pre id="simLog"></pre></details>
+      <details><summary>日志</summary><pre id="simLog"></pre></details>
       <p style="text-align: right"><button id="simClose">关闭</button></p>
     </dialog>
 

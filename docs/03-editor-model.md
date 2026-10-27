@@ -15,12 +15,11 @@ interface Document {
   sheet: Sheet;               // 目前只做单页；多页留字段
   parts: PlacedPart[];
   wires: Wire[];
-  switches: Switch[];         // 拓扑选择器（不生成元件，只决定导出哪些分支）
   texts: TextItem[];          // 注释、标题栏补充
   meta: { name: string; author?: string; notes?: string };
 }
 
-/** 开关：图纸元素 + 变体选择器（见决策 D-005） */
+/** （D-007）本项目不做开关，所以没有 Switch / present 字段 */
 interface Switch {
   id: string;
   ref: string;                // SW1
@@ -46,8 +45,6 @@ interface PlacedPart {
   rot: 0 | 90 | 180 | 270;
   mirror: "none" | "x" | "y";
   pins: Record<string, Net>;  // ← 可选：仅"命名网络"用；默认空，靠导线推
-  /** 条件存在：{ "SW1": "B" } —— 只在 SW1=B 的分支里出现（决策 D-005） */
-  present?: Record<string, string>;
   fields?: { showValue: boolean; showRef: boolean; showModel: boolean };
 }
 
@@ -55,8 +52,6 @@ interface Wire {
   id: string;
   points: { x: number; y: number }[];  // 折点，≥2；坐标吸附到栅格
   net?: string;                        // 显式网络名（可选）
-  /** 条件导线：{ "SW1": "B" } —— 该分支才连（用来表达"短接某元件"） */
-  present?: Record<string, string>;
 }
 
 type Net = string;            // 网络名（"n$1" 自动 / "IN" 手动）
@@ -84,55 +79,19 @@ type Net = string;            // 网络名（"n$1" 自动 / "IN" 手动）
 
 ---
 
-## 3. 交互（照搬 breadspice 的手感）
+## 3. 交互（模态编辑 —— 以 `prompt.md` 为准，见 D-009）
 
-| 操作 | 交互 | 备注 |
-|---|---|---|
-| 放置元件 | 从库面板拖入画布 | 落点吸附栅格；自动分配参考编号 |
-| 移动 | 拖拽（整体 + 连接导线跟随） | 拖拽时显示引脚吸附高亮 |
-| 旋转 | `R` 键 / 角落蓝点 | 90° 步进 |
-| 镜像 | `X` / `Y` 键 | |
-| 画线 | `W` 或点击引脚起笔；单击落点，双击结束 | 折点吸附；Esc 取消 |
-| T 型连接 | 导线端点落在另一根导线上 | 自动生成 junction 圆点 |
-| 选择 | 单击 / 框选（左→右包含、右→左相交，同 CAD） | |
-| 删除 | `Delete` | 删元件时连带删掉只连着它的导线 |
-| 属性 | 双击元件 → 右侧属性面板 | 数值 + 单位、型号下拉（闭集）、参考编号 |
-| 撤销/重做 | `Cmd/Ctrl+Z` / `Shift+Cmd+Z` | 命令式（见 §6） |
-| 平移/缩放 | 空格拖拽 / 滚轮 | |
-| 端口标注 | 在 `node-in`/`node-out` 符号上填网络名 | 生成 `in=`/`out=` 指令 |
-| 电位器 | 放 `potentiometer`，三个引脚按名字绑定 | 生成 `P1A/P1B` + `param` 指令 |
+**主界面不提供拖放式元件库。** 所有编辑都在"模式"里完成，`esc` 永远回到查看模式。
 
----
+| 键 | 模式 | 行为 |
+## 3.5 开关：本项目不提供（D-007）
 
-## 3.5 开关与分支（决策 D-005）
+图纸上**没有开关符号**，网表导出**永远是单份** `.cir`。
 
-开关**不生成电路元件**，它把**同一张图**变成 2ⁿ 份完整电路。
+理由：真实插件的开关是**子电路切换**（插件层持有多个完整 `Circuit` + 交叉淡化），
+不是电路拓扑切换。把它画进原理图只会让人以为"这里会被导出成一个元件"。
 
-| 概念 | 表达 |
-|---|---|
-| 开关 | `switches[]`：id / 参考编号 / 显示名 / 2..3 个状态 / 触点对（画图用） |
-| 只在某状态存在的元件 | `parts[].present = { SW1: "B" }` |
-| 只在某状态连通的导线（短接） | `wires[].present = { SW1: "B" }` |
-| 分支 | 开关状态的**组合**：n 个开关 → 2ⁿ 个组合（每个开关假定两态） |
-
-导出时：
-
-```text
-for combo in enum_combos(switches):          # 2^n
-    doc_branch = filter(doc, combo)          # 丢掉 present 不满足条件、或条件冲突的元素/导线
-    netlist(combo) = to_spice(doc_branch)    # 每份都是**完整电路**
-```
-
-约束（编辑器要在 UI 里就挡住）：
-
-- **n ≤ 3**（最多 8 份）；超过直接拒绝并提示原因（编译时间/内存）；
-- 某组合下若"电路不成立"（例如电源被断开、没有输出端口），标红该组合但**不阻止导出其它组合**；
-- 开关**不能**出现在电源/地路径上（会造成"没供电的分支"）→ lint error；
-- **true-bypass / 脚踏开关不属于开关**：它是 `Engine` 的旁通，图纸里用注释或专用符号标注，
-  不参与分支枚举。
-
-> 这一节是与 rustomp 生成器的**唯一**分歧点：生成的代码不是"一个带 bool 参数的电路"，
-> 而是"2ⁿ 个电路 + 插件层选择"。rustomp 侧的同步事项见 `docs/00-decisions.md` 末表。
+需要标注"这台机器有踩钉/拨杆"时，用**文字注释**表达，不画电气符号。
 
 ---
 
@@ -151,8 +110,6 @@ for combo in enum_combos(switches):          # 2^n
 5) 接地符号（earth）→ 网络名固定为 "0"
 ```
 
-**注意：连通性要按分支各算一次** —— 条件导线只在对应分支里参与 union，
-所以 2ⁿ 个分支会得到 2ⁿ 份不同的网络表（这正是"每份都是完整电路"的含义）。
 
 **为什么不"编辑时实时合并节点"**：
 面包板那样边拖边并会引入大量中间状态，撤销重做会变得很脏。
@@ -208,8 +165,8 @@ type Command =
 | 文件 | 内容 | 用途 |
 |---|---|---|
 | `*.design.json` | `Document`（§1） | **编辑器的原生格式**，可版本化、可 diff |
-| `branch_*/branch_N.cir` | SPICE 网表 + `* @rustomp` 指令（每分支一份） | 交给 `rustomp-import`；可被 ngspice 直接仿真 |
-| `branches.json` | 分支索引：开关组合 → 分支文件 + 端口 | 插件层据此选择分支 |
+| `<name>.cir` | SPICE 网表 + `* @rustomp` 指令（**单份**，D-007） | 交给 `rustomp-import`；也可被 ngspice 直接仿真 |
+| `<name>.png` | 预览截图（D-008） | 存档 / 发给别人 |
 | `*.svg` | 图纸导出（栅格 + 符号 + 标注） | 打印/分享 |
 | `*.netlist.json` | 网表的结构化形式（元件/网络/端口） | 调试、其它工具消费 |
 

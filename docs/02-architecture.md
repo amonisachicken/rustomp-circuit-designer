@@ -14,7 +14,7 @@
 |---|---|---|---|
 | 前端框架 | Vite 5 + **Vanilla TypeScript**（无 React/Vue） | 同 | 直接照搬工程配置 |
 | 渲染 | 原生 **SVG**（`render/*.ts`） | 同（原理图画布） | 结构照搬，实现重写 |
-| 交互 | 拖拽 / 旋转 / 引脚伸缩（`interaction/*.ts`） | 拖拽 / 旋转 / 画线 / 框选 | 交互模型照搬 |
+| 交互 | 拖拽 / 旋转 / 引脚伸缩（`interaction/*.ts`） | **模态编辑**（`r/c/w/q/m/空格/d` + `esc`，见 D-009） | 只照抄骨架，交互重写 |
 | 状态 | `circuitStore` / `projectStore` + 撤销重做 | 同 | 模式照搬 |
 | 后端框架 | Rust **axum 0.7 + tokio + serde** | 同 | 直接照搬 |
 | 通信 | **HTTP JSON-RPC + WebSocket 事件流** | 同 | 协议照搬（换方法名） |
@@ -35,7 +35,7 @@
 ┌──────────────────────────── 前端（浏览器） ────────────────────────────┐
 │  main.ts / 组件      画布、工具栏、属性面板、库面板                      │
 │  ├─ render/          SymbolRenderer（SVG 片段 + 变换）、WireRenderer、GridRenderer
-│  ├─ interaction/     选择 / 拖拽 / 旋转 / 画线 / 吸附 / 框选
+│  ├─ interaction/     模式状态机（查看/放置/画线/删除/移动/复制）+ 光标 + 吸附
 │  ├─ store/           DocumentStore（元件+导线+页）、HistoryStore（撤销重做）、Selection
 │  ├─ types/           domain.ts（文档模型）、protocol.ts（与后端对齐）
 │  └─ backend/         HttpBackend（JSON-RPC 客户端）+ 事件流订阅
@@ -46,8 +46,7 @@
 │  ├─ server.rs        路由：/rpc（JSON-RPC）、/events（WS）              │
 │  ├─ protocol.rs      请求/响应/事件类型（与前端 protocol.ts 一一对应）   │
 │  ├─ domain.rs        文档模型（与前端 domain.ts 一一对应）               │
-│  ├─ netlist.rs       **文档 → SPICE 网表 + @rustomp 指令**（核心，按分支各算一份）
-│  ├─ branches.rs      开关组合枚举 → 2ⁿ 份网表 + branches.json              │
+│  ├─ netlist.rs       **文档 → SPICE 网表 + @rustomp 指令**（核心，单份；D-007 不做分支）
 │  ├─ codegen.rs       调用 rustomp_import::mna_codegen → Rust 源码        │
 │  ├─ symbols.rs       读取 symbols.json（引脚元数据）                    │
 │  └─ lint.rs          电路检查（悬空引脚、多驱动、无地、重复编号…）        │
@@ -96,7 +95,7 @@ rustomp-circuit-designer/
 | `frontend/src/backend/HttpBackend.ts`（JSON-RPC 客户端） | 照抄 | 只换类型 |
 | `frontend/src/store/*`（撤销重做、持久化） | 照抄模式 | 文档模型不同 |
 | `frontend/src/render/svgAsset.ts`（SVG 片段注入） | 照抄 | 增加"引脚热点"注入 |
-| 交互框架（拖拽/旋转/吸附） | 照抄模式 | 坐标从"孔位"换成"2.5 mm 栅格" |
+| 交互框架 | **不照抄**（本工具是模态编辑，D-009） | 坐标从"孔位"换成"2.5 mm 栅格" |
 
 ## 5. 必须新写的部分
 
@@ -105,7 +104,7 @@ rustomp-circuit-designer/
 | **原理图画布** | 面包板是固定孔位 + 元件占位；原理图是自由放置 + 任意角度 + 导线折点 |
 | **导线/节点模型** | 面包板靠插孔自然并网；原理图必须显式做"导线重合 → 节点合并"（并查集） |
 | **网表生成器** | 面包板输出网表给 ngspice；这里还要输出 `* @rustomp` 指令与端口声明 |
-| **分支枚举** | 开关 → 2ⁿ 份完整网表（决策 D-005）；面包板没有这个概念 |
+| **单份网表** | 开关不进网表（D-007）：分支由插件层维护，设计器只导出当前这一份 |
 | **符号清单 `symbols.json`** | breadspice 的元件是 JS 写死的；这里必须数据驱动（`docs/04`） |
 | **lint** | 悬空引脚、同网多驱动、无地、重复参考编号、电位器未接线等 |
 

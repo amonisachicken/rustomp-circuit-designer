@@ -126,69 +126,20 @@ RP1B 2 3 <500k·(1−t)>
 
 ---
 
-## 6. 开关 = 多分支导出（不是元件）
-
-一份图 + n 个开关 ⇒ **2ⁿ 份网表**，全部写进同一个目录：
+## 6. 导出产物（单份；D-007 不做开关）
 
 ```text
 out/
-├── branches.json                  # 组合索引（见 §6.2）
-├── branch_0/branch_0.cir          # 开关组合 (A,A,…) 的完整电路
-├── branch_1/branch_1.cir
-└── branch_2/branch_2.cir …
+├── sparklin_drive.cir    # 这一份电路的完整网表（含 * @rustomp 指令）
+└── sparklin_drive.png    # 预览截图（D-008，可选）
 ```
 
-### 6.1 单个分支的生成规则
+- **永远只有一份网表**：开关不进网表（铁律），分支由插件层维护；
+- 网表必须**确定性字节**（同样的图 → 同样的文本），便于入库与 diff；
+- 元件编号与网络名按几何排序（§4），不依赖编辑顺序。
 
-```text
-for combo in 所有开关状态组合:              # 2^n
-    parts  = doc.parts.filter(p => p.present 满足 combo)   # 条件元件
-    wires  = doc.wires.filter(w => w.present 满足 combo)   # 条件导线（短接）
-    netlist(combo) = to_spice(parts, wires)                # 普通网表，无任何开关痕迹
-```
+---
 
-- 每份网表**都能单独喂给 ngspice**、单独被 `rustomp-import --mna` 生成 `Ckt`；
-- **元件/节点编号必须稳定**：同一元件在不同分支里保持同一个参考编号（`R1` 永远是 `R1`），
-  网络名也按"该分支的实际几何"排，不因分支不同而改名 —— 否则 diff 与对拍都无法比较。
-
-### 6.2 分支索引 `branches.json`
-
-```jsonc
-{
-  "version": 1,
-  "switches": [
-    { "id": "SW1", "ref": "SW1", "labels": ["非对称", "对称"], "states": ["A", "B"] }
-  ],
-  "branches": [
-    { "index": 0, "combo": { "SW1": "A" }, "file": "branch_0/branch_0.cir",
-      "ports": { "in": "IN", "out": "OUT" }, "valid": true },
-    { "index": 1, "combo": { "SW1": "B" }, "file": "branch_1/branch_1.cir",
-      "ports": { "in": "IN", "out": "OUT" }, "valid": true }
-  ]
-}
-```
-
-插件层（VST/AU 交互层）只认这份索引：
-
-```rust
-enum Variant { B0, B1 }                 // 由生成器按 branches.json 产出
-```
-
-- 参数（开关旋钮/拨杆）→ `Variant`；
-- **只有当前分支在跑**，切换时交叉淡化（复用 `Engine` 旁通那套 15 样本对齐 + 5 ms 淡化）；
-- 各分支的 `Circuit` 类型可以不同（元件数不同），**不能**塞进同一个 `Netlist<N>` ——
-  所以每个分支各自是一个独立类型/模块。
-
-### 6.3 约束
-
-| 约束 | 处理 |
-|---|---|
-| n ≤ 3（≤ 8 份） | 超过直接拒绝，提示"开关数过多，请拆分插件" |
-| 开关不得出现在电源/地路径 | lint **error**（会产生"未供电"的无效分支） |
-| 某组合下电路不成立（无输出端口等） | 该组合标 `valid: false`，不阻止其它分支导出 |
-| true-bypass / 脚踏开关 | 不属于开关：由 `Engine` 旁通实现，图纸只做标注 |
-
-```
 ## 7. 生成 → 验证的闭环
 
 ```bash

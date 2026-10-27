@@ -1,184 +1,212 @@
 # rustomp-circuit-designer
 
-**电路原理图设计器**（画图 → 网表），是 [rustomp](https://github.com/amonisachicken/rustomp)
-生态里"上游"的一环。
+**电路原理图设计器** —— 在浏览器里画原理图，得到一份可被 [rustomp](https://github.com/amonisachicken/rustomp)
+直接生成插件电路的 SPICE 网表。
+
+它是 rustomp 生态的**首选**原理图设计器（取代 breadspice 的"画面包板"路径）：
 
 ```text
  本设计器                     rustomp 框架                     插件
  ─────────                   ───────────────                  ──────
  画原理图
-   │ 输出：SPICE 网表 + `* @rustomp` 指令
-   ▼
- rustomp-import --mna ──► 生成的 Rust 电路（Netlist + Params + impl Circuit）
-                              │
-                              ▼
-                          rustomp-dsp（MNA / 器件库 / 实时路径）
-                              │
-                              ▼
-                          Engine + rustomp-gui + nih-plug → AU/VST3/CLAP
+   │ 交付物① 工程文件 .design.json  ──┐
+   │ 交付物② 网表 .cir + @rustomp 指令 ─┤
+   ▼                                  ▼
+                             rustomp-import --mna ──► 生成的 Rust 电路（Netlist + Params + impl Circuit）
+                                                           │
+                                                           ▼
+                                                   rustomp-dsp（MNA / 器件库 / 实时路径）
+                                                           │
+                                                           ▼
+                                                Engine + rustomp-gui + nih-plug → AU/VST3/CLAP
 ```
 
 ---
 
-## 现状（2026-10-25）
+## 1. 产品介绍
 
-**D0 完成、D1 大部分完成**（2026-10-27）：能模态编辑画原理图、能跑 `tran`/`ac` 仿真、
-能把网表交给 `rustomp-import` 生成可编译的 `Ckt`，并且已经在真实电路上验证过。
-（需求以 `prompt.md` 为准；与旧文档冲突处已在 `docs/00` 记录取舍，D-001…D-018。）
+画完一张图，你得到两样东西：
 
-规模：前端 2429 行 TS+CSS、后端 1870 行 Rust、工具 453 行 Python；符号 18 个；
-文档 `docs/` 1490 行（另 README 183、DEVLOG 205）。
-开发过程（做了什么、为什么、踩了什么坑）逐条记在 **`DEVLOG.md`**；结论进 `docs/00-decisions.md`。
+| 交付物 | 用来做什么 |
+|---|---|
+| **工程文件 `.design.json`** | rustomp 可以直接读（推荐路径）：不用先导出，也不会"改了图忘了重导出" |
+| **SPICE 网表 `.cir`** | 通用格式：能被 ngspice 直接验证，也能交给任何 SPICE 工具或用 `rustomp-import` 生成代码 |
 
-已经能跑：
+它解决的是**"画完就知道声音对不对"**：图纸、仿真、生成代码三件事在同一个界面里，
+不必在 LTspice / 面包板 / 手写网表之间来回搬。
 
-```bash
-./tools/gen-symbols.py                        # 符号 → symbols/symbols.json（与 kit 的 PINS 表交叉校验）
-cd backend && cargo run                       # 后端：designer.ping / symbols / netlist / simulate / save（127.0.0.1:3600）
-cd frontend && npm install && npm run dev      # 画布 + 模态编辑（r/c/w/q/m/空格/d + esc）
-cd backend && cargo test                       # 16 个测试（含网表黄金文件 + 真跑 ngspice 的 tran/ac）
+**面向谁**：rustomp 插件的电路作者。交互是**模态编辑**（键盘驱动、无拖放，
+以 [`docs/prompt.md`](docs/prompt.md) 的需求书为准 —— D-009）。
+
+---
+
+## 2. 架构
+
+```text
+frontend/（Vite + TS，零运行时依赖）                backend/（Rust + axum，JSON-RPC over HTTP）
+  画布：原生 SVG                                    designer.symbols    符号清单（含引脚几何）
+  模态编辑状态机（r/c/w/q/m/空格/d）                 designer.netlist    文档 → 网表 + lint
+  渲染 / 命中区 / 锚点文字                           designer.save/last  存到缓存 / 启动恢复
+  属性面板 / 示波器 / 预览                           designer.simulate   ngspice tran·ac（含取消）
+        │   HTTP :3600                             designer.fft        频谱（Hann + 对数 dB）
+        └────────────────────────────────────────► designer.codegen   调 rustomp-import --mna
 ```
 
-实测链路（M-B 雏形）：设计器画 `R1/R2 + GND + IN/OUT` → 导出 `.cir` →
-`cargo run -p rustomp-import -- designer_out.cir --mna out.rs` → **成功生成 `Ckt`（3 个未知量，节点 IN/OUT）**。
-
-仿真（M-A）：示例 `?load=lowpass`（10k + 100n，fc≈159 Hz）在 1 kHz 下
-**稳态衰减实测 0.157**，与理论 `1/√(1+(f/fc)²)` 一致；10 ms 窗口 1505 点。
-
-> 调试开关：`?load=lowpass|noninverting|common-emitter|diode-clip` 载入示例/模板、
-> `?sim=1` 直接开仿真、`?selftest=1` 冒烟（**22 项**：命中区 / 双击属性 / 导线归一化 /
-> 文字锚点 / 快捷键 / 保存清历史 / 仿真探针 / 查看模式拖动平移）。
-
-四个电路的实测（0.2 V / 1 kHz / 20 ms）：
-
-| 电路 | 输出稳态 | THD |
+| 层 | 选型 | 理由 |
 |---|---|---|
-| `lowpass`（10k+100n） | 0.031 V（= 理论 0.157 衰减） | 0.00% |
-| `noninverting`（100k/10k，增益 11） | 2.20 V | 0.00% |
-| `common-emitter`（Rc/Re=10） | 3.28 V（撞到 9 V 轨） | **27.16%** |
-| `diode-clip`（1N4148 ∥ 1N34A） | 0.173 V | **20.07%** |
+| 前端 | Vite 5 + Vanilla TS，原生 SVG | 符号资产是 SVG，浏览器原生能渲染；原理图本质是 2D 矢量 + 大量指针事件 |
+| 后端 | Rust + axum，JSON-RPC over HTTP | 网表生成、lint、ngspice、调 `rustomp-import` 都在 Rust 侧；骨架与 breadspice 同构（D-002） |
+| 坐标 | **毫米**（1 单位 = 1 mm）+ 2.5 mm 栅格 | 与符号 SVG 的 `viewBox`/引脚跨距一致，导出永不缩放（D-003） |
+| 文档 | 纯文本 JSON（`.design.json`） | 可 diff、可版本化、可手改（D-004） |
 
-**生成代码**（M-B）：非反相放大 → `rustomp-import --mna` → `N = 7`、`XU1 IN n1 VCC VEE OUT OP07A`，
-生成物里 `use rustomp_dsp::{GND, Netlist, OP07};` ✓。
+骨架从 [breadspice](https://github.com/amonisachicken/breadspice) 照搬（同为 GPL-3、同作者），
+**交互与画布重写**：面包板的"拖放 + 插孔归并"换成原理图的"模态编辑 + 导线/引脚重合"。
+细节见 [`docs/02-architecture.md`](docs/02-architecture.md)。
+
+### 目录
+
+```text
+backend/     Rust 后端：netlist.rs（文档→网表+lint）/ sim.rs / codegen.rs / store.rs / fft.rs
+frontend/    画布：model.ts / symbols.ts / render.ts / mode.ts / plot.ts / main.ts
+symbols/     symbols.json（运行时清单）+ overrides.json（手写引脚名）
+assets/      GB/T 4728 符号素材（原样导入，未改动）
+tools/       gen-symbols.py（素材 → symbols.json）/ make-templates.py
+docs/        决策账本 / 架构 / 编辑模型 / 符号管线 / 网表契约 / 路线 / 仿真对照 / 自测 / 开发日志
+```
+
+---
+
+## 3. 功能范围
+
+### 能做
+
+| 类别 | 内容 |
+|---|---|
+| **画图** | 放置 / 移动 / 复制 / 旋转 / 镜像 / 删除元件；正交导线（T 型连接、junction 圆点）；导线**自动合并重合与首尾相接**（删除即删整段） |
+| **连通性** | 引脚落点与导线端点/中间重合即为连接；并查集求网络；自动命名 `n1…`（按坐标排序，保证网表确定性） |
+| **元件** | 电阻、电容、电位器、二极管、LED、电压源、NPN/PNP、N-JFET、N-MOSFET、运放、接地、Vcc、Vee、In、Out、测试点、NC（**18 个**） |
+| **网表** | 导出单份 `.cir`（含 `* @rustomp` 指令）+ lint：无地 / 重复编号 / 未知或缺失型号 / 悬空引脚 / 缺端口 / 非法导线… |
+| **仿真** | ngspice `tran` + `ac`、波形、FFT、THD、取消；**IN = 波形发生器**（幅值/频率），**OUT 与测试点 = 示波器**（双击看该节点） |
+| **验证** | 悬空引脚红圈、hover 高亮命中区、属性面板（数值 = 数字框 + 单位下拉） |
+| **工程** | 命名、保存（服务端缓存）、导出/导入 `.design.json`、启动自动恢复上次保存、预览截图 PNG、一键生成 rustomp 电路代码 |
+
+### 暂不（后端已备或已规划）
 
 | 项 | 状态 |
 |---|---|
-| **关键决策**（架构/坐标/格式/模态交互/**不做开关**/预览=截图/导线归一化/命中区/文字锚点/数值单位/保存语义/仿真复用/仪表挂元件/文案规矩） | ✅ `docs/00-decisions.md`（D-001…D-018） |
-| 核心符号资产（GB/T 4728，16 个符号，全部按标准手绘） | ✅ 已导入 `assets/gb4728-symbols-kit/`；另自补 `test-point` / `nc`，删掉 `jack` / `dc-jack` → **清单 18 个** |
-| 资产评估（覆盖度/技术质量/集成风险） | ✅ `docs/01-assets-gb4728.md` |
-| 前后端架构（**完全复用 breadspice**） | ✅ `docs/02-architecture.md` |
-| 编辑模型与交互 | ✅ `docs/03-editor-model.md` |
-| 符号 → 运行时清单（`symbols.json`） | ✅ `tools/gen-symbols.py` + `--check` 防漂移 `docs/04-symbol-pipeline.md` |
-| 网表输出契约（对接 `rustomp-import`） | ✅ `docs/05-netlist-contract.md` |
-| 分阶段计划 | ✅ `docs/06-roadmap.md` |
-| 仿真能力对照（breadspice vs 本设计器） | ✅ `docs/07-sim-comparison.md` |
-| **D0 骨架** | ✅ 完成：符号清单 / 画布 + 模态编辑 / 后端 RPC / **网表导出 + lint** / 预览截图 |
-| **D1** | ✅ 大部分：**仿真**（`tran`+`ac`、rawfile、取消、FFT）、**生成代码**（调 `rustomp-import`）、悬空引脚红圈、**2×2 格命中区 + hover 高亮**、双击开属性、**导线自动合并/接续**（删除即删整段）、3 个模板、位号不随旋转、数值=数字框+单位下拉、**顶栏保存/导出/导入 + 启动自动恢复**、**IN=波形发生器 / OUT 与测试点=示波器** |
-| `dc` 扫描 UI 入口、`op` 工作点 | ⏸ 后端已备，UI 未开放（用户要求） |
-| 框选/多选、层次图（`.subckt`）、Tauri 桌面版、1:1 打印 | ⬜ 未做 |
+| `dc` 扫描 / `op` 工作点入口 | 后端解析与驱动已就绪，UI 不开放 |
+| 框选 / 多选 | 不做（模态编辑用 `q` 逐个点） |
+| 层次图（`.subckt`）、多页 | 未做 |
+| SVG / 1:1 打印 | 未做（目前只有 PNG 预览） |
+| Tauri 桌面版 | 未做（前端不变即可加） |
+
+### 明确不做
+
+| 不做 | 原因 |
+|---|---|
+| **开关元件 / 分支导出** | D-007 铁律：开关是**插件层**的子电路切换，不是电路拓扑；图纸里连符号都不提供，导出永远是**单份**网表 |
+| PCB 布局 / 布线、3D、面板外壳 | 这是原理图设计器，不是 EDA 全家桶；面板另有 GUI 设计器 |
+| SPICE 引擎 | 用 ngspice（`designer.simulate`），不自研 |
+| 器件模型编辑 | 型号是**闭集**；要加型号去 rustomp 的 `devices/` 标定 |
+| 电解电容（极性） | D-006：器件库没有极性模型 |
 
 ---
 
-## 顶栏与快捷键
+## 4. 部署与运行
 
-```text
-撤销 · 重做 · [命名框] · 新建 · 保存 · 导出布局 · 导入布局 · 仿真 · 预览 · 生成网表 · 生成代码 · ?
-```
+### 依赖
 
-| 顶栏 | 行为 |
-|---|---|
-| **命名框** | 布局名字（保存与导出的文件名都用它） |
-| **保存** | 写服务端缓存（`.cache/designs/<名字>.design.json`）+ **清空撤销/重做** |
-| **导出布局** | 下载 `<名字>.design.json` |
-| **导入布局** | 读本地 `.design.json`（名字取文件里的 name，没有就用文件名） |
-| **预览** | 画布位图截图，可保存 PNG |
-| **仿真** | `tran` / `ac`；**IN 兼作波形发生器**（幅值/频率在它的属性里设）、**OUT 与测试点都是示波器**（双击看波形 + FFT） |
-| **生成网表 / 生成代码** | 见下 |
-
-## 为什么复用 breadspice 的架构
-
-[breadspice](https://github.com/amonisachicken/breadspice) 已经解决了同一类问题的 80%：
-SVG 渲染、拖拽/旋转/引脚伸缩、撤销重做、布局持久化、以及 **Rust 后端 + JSON-RPC/WebSocket**
-的前后端分层。设计器把"面包板"换成"原理图"，交互与数据流几乎可以照搬。
-
-| 层 | breadspice | 本设计器 |
+| 依赖 | 用途 | 检查 |
 |---|---|---|
-| 前端 | Vite 5 + Vanilla TS，**SVG** 渲染 | 同（换成原理图画布 + 2.5 mm 栅格） |
-| 交互 | 拖拽 / 旋转 / 引脚伸缩 / 框选 | **模态编辑**（`r c w q m 空格 d` + `esc`）—— 见 D-009 |
-| 状态 | `circuitStore` / `projectStore` + 撤销重做 | 同（文档模型见 `docs/03`） |
-| 后端 | Rust axum + JSON-RPC + WS | 同 |
-| 后端职责 | ngspice 仿真 | **网表生成 + `rustomp-import` 代码生成**（可保留仿真） |
+| **Node.js 18+** | 前端构建/dev server | `node -v` |
+| **Rust（stable）** | 后端 | `cargo -V` |
+| **Python 3** | `tools/gen-symbols.py`（生成符号清单） | `python3 -V` |
+| **ngspice** | 【仿真】按钮 | `ngspice -v`（没装则仿真报错，其余功能正常） |
+| **rustomp 仓库**（可选） | 【生成代码】按钮 | 同级目录 `../rustomp` 或 `RUSTOMP_ROOT` |
 
-详见 `docs/02-architecture.md`。
+### 启动
 
----
+```bash
+# 1) 符号清单（只在素材变更后需要重跑；已入库，克隆即可用）
+./tools/gen-symbols.py            # --check 只校验不写
 
-## 核心资产
+# 2) 后端（127.0.0.1:3600）
+cd backend && cargo run
 
-`assets/gb4728-symbols-kit/`（原样导入，未改动）：
-
-- **16 个符号** × (SVG + 1200 dpi 透明 PNG)：电阻、电容、电位器、二极管、LED、电压源、
-  NPN、PNP、N-JFET、N-MOSFET、运放、接地、Vcc、Vee、In、Out
-- 图集源文件（A4 五图层 SVG + PDF + PNG）+ 构建脚本 + 一份 18 KB 的绘制手册
-
-评估结论（细节见 `docs/01-assets-gb4728.md`）：
-
-- ✅ **几何质量高**：1 单位 = 1 mm、2.5 mm 栅格、引脚全在格点、线宽 0.45/0.9 有规范、
-  每个 SVG 顶部有**机器可读的引脚坐标注释**
-- ⚠️ **引脚名缺失**：注释里只有坐标，没有 `C/B/E`、`a/k`、`IN+/IN-/V+/V-/OUT` 这类结构化引脚名
-  → 需要生成 `symbols.json` 补上（`docs/04`）
-- ⚠️ **不够画完整踏板**：缺开关符号（仅图纸表达）、插孔、DC 座、电感等（缺口清单见 `docs/01` §5）；
-  电解电容按 D-006 暂不考虑
-- ⚠️ **脚本是 Windows 路径**（Inkscape `C:\...`），macOS 需要改路径或改用 `resvg`
-
----
-
-## 输出契约（最重要的一条）
-
-设计器**只输出网表**，不直接生成 Rust：
-
-```text
-* @rustomp in=IN1 out=OUT1
-* @rustomp param P1A gain pot max=500k
-* @rustomp switch SW1 symmetric ...（按需）
-V1 IN1 0 DC 0 AC 0.2 SIN(0 0.2 1k)
-R1 ...
-Q1 c b 0 BC549C
+# 3) 前端（另开一个终端）
+cd frontend && npm install && npm run dev
 ```
 
-理由：**网表是可被 ngspice 验证的中间格式**，rustomp 的所有对拍（器件级 / 装配器级 / 整机级）
-都锚在它上面。设计器一旦直接产出代码，对拍链就断了。
+打开终端里打印的地址即可。前端默认连 `http://127.0.0.1:3600/rpc`。
 
-三条硬要求（`docs/05-netlist-contract.md`）：
+### 环境变量
 
-1. 端口必须显式标注（`in=` / `out=`）；
-2. 可调元件必须显式声明（`param`，不从 `250k + 250k` 反推电位器）；
-3. 器件型号必须落在 rustomp 的**闭集表**里。
+| 变量 | 默认 | 作用 |
+|---|---|---|
+| `CD_PORT` | `3600` | 后端端口 |
+| `CD_ROOT` | 仓库根（`backend/` 的上一级） | 找 `symbols/symbols.json` 与 `assets/` |
+| `CD_DATA` | `<仓库根>/.cache/designs` | 【保存】写到哪里 |
+| `NGSPICE` | `ngspice` | ngspice 可执行文件路径 |
+| `RUSTOMP_ROOT` | `../rustomp` | 【生成代码】调的 rustomp 仓库位置 |
+| `VITE_RPC_URL` | `http://127.0.0.1:3600/rpc` | 前端连哪个后端 |
 
-**开关不进网表**（D-007 铁律）：设计器**不提供开关符号**，也**不做分支导出** —— 始终只导出
-**单份** `.cir`。插件里"切换不同声音"由插件层持有多个 `Circuit` 并交叉淡化，与本项目解耦。
-（早期 D-005 曾设想"同一张图导出 2ⁿ 份网表"，已被 D-007 取代。）
+### 测试
+
+```bash
+cd backend && cargo test        # 16 项（含真跑 ngspice 的 tran/ac、网表黄金文件）
+cd frontend && npm run typecheck
+# 浏览器：<地址>?selftest=1 —— 22 项交互冒烟
+```
+
+清单与实测数字见 [`docs/08-testing.md`](docs/08-testing.md)。
 
 ---
 
-## 文档
+## 5. 与 rustomp 对接
 
-| 文档 | 内容 |
+**只出网表，不出 Rust**（因为网表是可被 ngspice 验证的中间格式，对拍链全靠它）。
+
+### 两种交付方式
+
+```bash
+# A) 首选：工程文件直接交给 rustomp-import（不用先导出）
+RUSTOM_DESIGNER_SYMBOLS=<本仓>/symbols/symbols.json \
+  cargo run -q -p rustomp-import -- 设计.design.json --mna <项目>/src/generated/circuit.rs
+
+# B) 传统：先导出 .cir 再喂（两条路产物逐行相同，rustomp 侧有对拍测试守着）
+cargo run -q -p rustomp-import -- 设计.cir --mna <项目>/src/generated/circuit.rs --check
+```
+
+### 契约（两侧必须一致）
+
+| 项 | 约定 |
 |---|---|
-| **`DEVLOG.md`** | **开发日志**：今天每一步做了什么、为什么、踩了什么坑（过程） |
-| `docs/00-decisions.md` | **决策账本（ADR）** D-001…D-018（结论，**先读这个**） |
-| `docs/01-assets-gb4728.md` | **核心资产评估**：清单、技术质量、覆盖度、缺口、风险 |
-| `docs/02-architecture.md` | 前后端架构（复用 breadspice）、复用清单、技术选型理由 |
-| `docs/03-editor-model.md` | 文档模型、栅格吸附、导线/节点、撤销重做、快捷键 |
-| `docs/04-symbol-pipeline.md` | 符号 → `symbols.json` 的 schema、生成与校验 |
-| `docs/05-netlist-contract.md` | 网表输出契约、命名规则、与 `rustomp-import` 的对接 |
-| `docs/06-roadmap.md` | D0–D4 分阶段计划与验收标准 |
-| `docs/07-sim-comparison.md` | 仿真能力对照：breadspice 实现细节 vs 本设计器、差异与取舍 |
-| `assets/gb4728-symbols-kit/README.md` | 符号绘制手册（原作者手笔，18 KB，务必读） |
+| 端口 | `* @rustomp in=<节点> out=<节点>` —— **节点名**（`IN`/`OUT`），不是元件名 |
+| 电位器 | `* @rustomp param RP1A <字段> pot max=<值> [invert]` —— 元素名是**网表元件名**（展成的电阻），不是位号 `P1A` |
+| 网表形态 | 一张图**一份** `.cir`；它是**纯拓扑**（激励由 DSP 或仿真弹窗注入，见 D-017） |
+| 型号 | 必须落在 rustomp 的**闭集表**里，否则导入即报错（不静默替换） |
+| 几何 | 引脚坐标以本仓 `symbols/symbols.json` 为唯一事实来源（rustomp 侧运行时读它，不复制） |
+| 确定性 | 同一张图永远产出同样字节（元件按参考编号自然序、自动网名按坐标排序） |
+
+完整网表契约见 [`docs/05-netlist-contract.md`](docs/05-netlist-contract.md)；
+rustomp 侧的导入器与逐行对拍见其 `docs/circuit-import.md` §1/§2/§10 与
+`crates/rustomp-import/tests/designer.rs`。
 
 ---
 
-## 许可证
+## 6. 文档
 
-GPL-3.0-or-later（`LICENSE`）。符号资产来自 GB/T 4728（等同采用 IEC 60617）的手绘复刻，
-使用范围见 `docs/01-assets-gb4728.md` §6。
+细节全在 [`docs/`](docs/README.md)（含索引与"何时读哪篇"）：
+
+- **决策账本** [`docs/00-decisions.md`](docs/00-decisions.md) —— 先读这个；
+- **网表契约** [`docs/05-netlist-contract.md`](docs/05-netlist-contract.md) —— 与 rustomp 接口变更时**两边同时改**；
+- **自测与实测** [`docs/08-testing.md`](docs/08-testing.md)；
+- **开发过程**（做了什么 / 为什么 / 踩了什么坑）在 [`docs/09-devlog.md`](docs/09-devlog.md)。
+
+---
+
+## 7. 许可证
+
+GPL-3.0-or-later（[`LICENSE`](LICENSE)）。符号资产是 GB/T 4728（等同采用 IEC 60617）的
+手绘复刻，版权归本项目所有，使用范围见 [`docs/01-assets-gb4728.md`](docs/01-assets-gb4728.md) §7。
+前端骨架与仿真核心复用自 breadspice（同为 GPL-3，同作者）。

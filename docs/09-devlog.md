@@ -1,4 +1,4 @@
-# DEVLOG — rustomp-circuit-designer
+# 开发日志（DEVLOG） — rustomp-circuit-designer
 
 电路设计器的开发日志。按"一次会话一组条目"记录：做了什么、为什么、踩了什么坑。
 

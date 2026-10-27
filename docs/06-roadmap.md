@@ -60,8 +60,8 @@
 |---|---|---|
 | 仿真 | 复用 breadspice 的仿真核心：`tran` / `ac`（`op`/`dc` 解析保留、UI 不开放） | ✅（`docs/07`） |
 | 波形 | 示波器面板（复用 breadspice 的 FFT/对数轴实现） | ✅ 仪表挂在元件上：IN=发生器，OUT/测试点=示波器 + FFT（D-017） |
-| 一键生成 | 画 → 网表 → `mna_codegen` → 显示生成的 Rust，并给出**对拍结果**（THD 对比） | ⚠️ 生成代码 ✅（M-B）；THD 对拍 ⬜ |
-| 差异提示 | 设计器算出的 THD 与 rustomp 基线不一致时高亮（说明某处接法不同） | ⬜ |
+| 一键生成 | 画 → 网表 → `mna_codegen` → 显示生成的 Rust，并给出**对拍结果**（THD 对比） | ✅ 生成代码（M-B）+ **THD 对拍（M-C）** 都成立；界面里还没把对拍结果显示出来 |
+| 差异提示 | 设计器算出的 THD 与 rustomp 基线不一致时高亮（说明某处接法不同） | ⬜（判据已有：非线性差 > 2 pp 算不一致，见 rustomp DEVLOG E86） |
 | 分支对拍 | 每个分支各自跑一次"设计器仿真 vs 生成的 `Ckt`"，逐分支报告 | ❌ 取消（D-007：不做分支） |
 
 > D3 是"设计器的价值放大器"：**画完就知道声音对不对**，
@@ -87,7 +87,7 @@
 |---|---|---|
 | **M-A** | 画出的图 → `.cir` → ngspice 能跑 | 只依赖 ngspice（✅） |
 | **M-B** | 画出的图 → `.cir` → `rustomp-import --mna` 生成 `Ckt` 并通过编译 | 依赖 rustomp S1a/S1b（✅ 已完成） |
-| **M-C** | 生成的 `Ckt` 的 THD 与设计器自己的仿真一致（同一把尺子） | 依赖 `rustomp-oracle`（⬜ 下一步） |
+| **M-C** | 生成的 `Ckt` 的 THD 与设计器自己的仿真一致（同一把尺子） | 依赖 `rustomp-oracle` — ✅ **2026-10-27 成立**：`lowpass` 0.0000/0.0000、`diode-clip` 26.554/26.554、`pretty-face` 60.53/60.93（测试在 rustomp 仓 `crates/rustomp-dsp/tests/mc_closed_loop_*.rs`） |
 | **M-D** | 生成的 `Ckt` 直接进插件（`Engine<Ckt>`）并在 Logic 里出声 | 依赖 rustomp 插件链路（✅ 已有） |
 
 ---

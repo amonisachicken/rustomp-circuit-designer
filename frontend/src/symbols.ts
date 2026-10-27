@@ -94,10 +94,20 @@ const ATTR_RE = /([\w:-]+)="([^"]*)"/g;
  */
 export function extractTexts(inner: string): { inner: string; texts: SymText[] } {
   const texts: SymText[] = [];
-  const stack: Record<string, string>[] = [];
-  const tagRe = /<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|[^>"])*?)(\/?)>/g;
+  // 每层 <g> 的样式与**累计 translate**（素材里文字坐标是相对 <g translate> 的，
+  // 而渲染时用的是 viewBox 坐标 → 必须把祖先的 translate 加上）
+  const stack: { attrs: Record<string, string>; tx: number; ty: number }[] = [];
+  const acc = () => {
+    let tx = 0;
+    let ty = 0;
+    for (const layer of stack) {
+      tx += layer.tx;
+      ty += layer.ty;
+    }
+    return { tx, ty };
+  };
 
-  // 边扫边记：遇到 <g> 入栈、</g> 出栈；遇到 <text> 就把栈里的属性合并成它的样式
+  const tagRe = /<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|[^>"])*?)(\/?)>/g;
   let m: RegExpExecArray | null;
   while ((m = tagRe.exec(inner)) !== null) {
     const closing = m[1] === "/";
@@ -106,20 +116,26 @@ export function extractTexts(inner: string): { inner: string; texts: SymText[] }
 
     if (tag === "g") {
       if (closing) stack.pop();
-      else stack.push(Object.fromEntries([...rawAttrs.matchAll(ATTR_RE)].map((a) => [a[1]!, a[2]!])));
+      else {
+        const attrs = Object.fromEntries([...rawAttrs.matchAll(ATTR_RE)].map((a) => [a[1]!, a[2]!]));
+        const tr = /translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)/.exec(attrs["transform"] ?? "");
+        stack.push({ attrs, tx: tr ? Number(tr[1]) : 0, ty: tr ? Number(tr[2]) : 0 });
+      }
       continue;
     }
     if (tag !== "text" || closing) continue;
 
     const own = Object.fromEntries([...rawAttrs.matchAll(ATTR_RE)].map((a) => [a[1]!, a[2]!]));
     const merged: Record<string, string> = {};
-    for (const layer of stack) Object.assign(merged, layer);
+    for (const layer of stack) Object.assign(merged, layer.attrs);
     Object.assign(merged, own);
 
+    const { tx, ty } = acc();
     const content = /<text\b[^>]*>([\s\S]*?)<\/text>/.exec(inner.slice(m.index))?.[1]?.trim() ?? "";
     texts.push({
-      x: Number(merged["x"] ?? 0),
-      y: Number(merged["y"] ?? 0),
+      // **viewBox 坐标**（渲染时再减去符号原点）
+      x: Number(merged["x"] ?? 0) + tx,
+      y: Number(merged["y"] ?? 0) + ty,
       size: Number(merged["font-size"] ?? 2.4),
       anchor: merged["text-anchor"] ?? "start",
       fill: merged["fill"] ?? "#0f172a",

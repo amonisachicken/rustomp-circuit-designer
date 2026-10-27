@@ -30,7 +30,19 @@ async function rpc<T>(method: string, params: unknown): Promise<T> {
   return body.result as T;
 }
 
+export interface SimResult {
+  cir: string;
+  t: number[];
+  vin: number[];
+  vout: number[];
+  ports: { in: string | null; out: string | null };
+  log: string;
+}
+
 export const backend = {
   ping: () => rpc<{ pong: boolean; version: string }>("designer.ping", {}),
   netlist: (doc: unknown) => rpc<NetlistResult>("designer.netlist", doc),
+  /** 仿真：后端拼上源与 .tran 跑 ngspice，返回波形（不影响交付的 .cir） */
+  simulate: (doc: unknown, opts: { amp: number; freq: number; stop_ms: number }) =>
+    rpc<SimResult>("designer.simulate", { doc, ...opts }),
 };

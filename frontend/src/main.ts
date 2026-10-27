@@ -1,10 +1,11 @@
 // 入口：装配画布、键盘/鼠标、元件库、属性面板、撤销重做、预览截图。
 // 交互规则见 docs/03 §3（D-009：模态编辑，无拖放）。
 
-import { backend, type NetlistResult } from "./backend";
+import { backend, type NetlistResult, type SimResult } from "./backend";
+import { drawWaveform } from "./plot";
 import { emptyDoc, snap, type Doc, type Part } from "./model";
 import { loadAllArt, loadArt, loadSymbols, type SymbolTable } from "./symbols";
-import { mmToScreen, render, screenToMm, type View } from "./render";
+import { fitView, mmToScreen, render, screenToMm, type View } from "./render";
 import {
   cancel,
   commitPlace,
@@ -466,6 +467,42 @@ $("#btnNetlist").addEventListener("click", async () => {
   $("#hint").textContent = `已导出 ${doc.name}.cir（${netlist.lints.length} 条提示）`;
 });
 
+// ---------------------------------------------------------------- 仿真
+
+$("#btnSim").addEventListener("click", () => {
+  const dlg = $<HTMLDialogElement>("#sim");
+  $("#simStatus").textContent = "";
+  $("#simLog").textContent = "";
+  dlg.showModal();
+  void runSim();
+});
+$("#simRun").addEventListener("click", () => void runSim());
+$("#simClose").addEventListener("click", () => $<HTMLDialogElement>("#sim").close());
+
+async function runSim(): Promise<void> {
+  const status = $("#simStatus");
+  const amp = Number($<HTMLInputElement>("#simAmp").value) || 0.2;
+  const freq = Number($<HTMLInputElement>("#simFreq").value) || 1000;
+  const stop = Number($<HTMLInputElement>("#simStop").value) || 10;
+  status.textContent = "运行中…";
+  try {
+    const r: SimResult = await backend.simulate(doc, { amp, freq, stop_ms: stop });
+    drawWaveform($<SVGSVGElement>("#simPlot"), {
+      t: r.t,
+      vin: r.vin,
+      vout: r.vout,
+      labelIn: r.ports.in ?? "in",
+      labelOut: r.ports.out ?? "out",
+    });
+    const maxOut = r.vout.length ? Math.max(...r.vout.map(Math.abs)) : 0;
+    status.textContent = `${r.t.length} 点 · ${stop} ms · ${freq} Hz · |out|max = ${maxOut.toFixed(3)} V`;
+    $("#simLog").textContent = r.log || "（无输出）";
+  } catch (e) {
+    status.textContent = `✗ ${e instanceof Error ? e.message : String(e)}`;
+    $("#simLog").textContent = String(e);
+  }
+}
+
 $("#btnNetlistToggle").addEventListener("click", () => {
   const pane = $<HTMLElement>("#netlistPane");
   pane.hidden = !pane.hidden;
@@ -525,20 +562,49 @@ async function previewPng(): Promise<void> {
 
 // ---------------------------------------------------------------- 启动
 
+/** `?load=<name>` 载入 frontend/public/examples/<name>.design.json（示例电路） */
+async function loadExample(name: string): Promise<boolean> {
+  try {
+    const res = await fetch(`examples/${name}.design.json`);
+    if (!res.ok) throw new Error(String(res.status));
+    const text = await res.text();
+    Object.assign(doc, JSON.parse(text) as Doc);
+    doc.nextId = Math.max(doc.nextId ?? 1, doc.parts.length + doc.wires.length + 1);
+    return true;
+  } catch (e) {
+    $("#hint").textContent = `载入示例失败：${e instanceof Error ? e.message : e}`;
+    return false;
+  }
+}
+
 async function main(): Promise<void> {
   table = await loadSymbols();
   await loadAllArt(table);
   for (const sym of Object.values(table.symbols)) artMap.set(sym.file, await loadArt(sym));
   hooks = makeHooks(table);
 
-  // 首屏演示：一个电阻 + 一个电容
-  enterPlace("resistor", table, hooks, { x: 20, y: 20 });
-  commitPlace(mode as Extract<Mode, { kind: "place" }>, hooks);
-  enterPlace("capacitor", table, hooks, { x: 20, y: 40 });
-  commitPlace(mode as Extract<Mode, { kind: "place" }>, hooks);
+  const q = new URLSearchParams(location.search);
+  const example = q.get("load");
+  if (example) {
+    await loadExample(example);
+  } else {
+    // 首屏演示：一个电阻 + 一个电容
+    enterPlace("resistor", table, hooks, { x: 20, y: 20 });
+    commitPlace(mode as Extract<Mode, { kind: "place" }>, hooks);
+    enterPlace("capacitor", table, hooks, { x: 20, y: 40 });
+    commitPlace(mode as Extract<Mode, { kind: "place" }>, hooks);
+  }
   hooks.setMode({ kind: "view" });
+  view = fitView(doc, table, { w: canvas.clientWidth || 1200, h: canvas.clientHeight || 800 });
+  repaint();
   hooks.status("r 电阻 · c 电容 · 空格 元件库 · w 画线 · q 删除 · m 移动 · d 复制 · esc 退出 · 中键平移/滚轮缩放");
   repaint();
+
+  // 调试开关：?sim=1 直接打开仿真弹窗（方便截图/排查）
+  if (q.has("sim")) {
+    $<HTMLDialogElement>("#sim").showModal();
+    void runSim();
+  }
 }
 
 void main();

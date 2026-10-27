@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use std::{path::PathBuf, sync::Arc};
 
 mod netlist;
+mod sim;
 use tower_http::cors::CorsLayer;
 
 #[derive(Clone)]
@@ -69,6 +70,24 @@ async fn rpc(State(app): State<Arc<App>>, Json(req): Json<RpcRequest>) -> Json<R
             };
             let g = netlist::generate(&doc, &table);
             ok(serde_json::to_value(g).unwrap_or(Value::Null))
+        }
+        "designer.simulate" => {
+            let path = app.root.join("symbols/symbols.json");
+            let table: netlist::SymbolTable = match std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|t| serde_json::from_str(&t).ok())
+            {
+                Some(t) => t,
+                None => return err(format!("读不到 {}", path.display())),
+            };
+            let req: sim::SimRequest = match serde_json::from_value(req.params) {
+                Ok(r) => r,
+                Err(e) => return err(format!("仿真参数解析失败：{e}")),
+            };
+            match sim::run(&req, &table) {
+                Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+                Err(e) => err(e),
+            }
         }
         other => err(format!("未知方法：{other}")),
     }

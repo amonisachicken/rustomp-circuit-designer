@@ -37,6 +37,11 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 实测链路（M-B 雏形）：设计器画 `R1/R2 + GND + IN/OUT` → 导出 `.cir` →
 `cargo run -p rustomp-import -- designer_out.cir --mna out.rs` → **成功生成 `Ckt`（3 个未知量，节点 IN/OUT）**。
 
+仿真（M-A）：示例 `?load=lowpass`（10k + 100n，fc≈159 Hz）在 1 kHz 下
+**稳态衰减实测 0.157**，与理论 `1/√(1+(f/fc)²)` 一致；10 ms 窗口 1505 点。
+
+> 调试开关：`?load=lowpass` 载入示例、`?sim=1` 直接打开仿真弹窗。
+
 | 项 | 状态 |
 |---|---|
 | **关键决策**（架构/坐标/格式/模态交互/**不做开关**/预览=截图） | ✅ `docs/00-decisions.md`（D-001…D-010） |
@@ -48,6 +53,7 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 | 网表输出契约（对接 `rustomp-import`） | ✅ `docs/05-netlist-contract.md` |
 | 分阶段计划 | ✅ `docs/06-roadmap.md` |
 | **D0 骨架** | ✅ 完成：符号清单 / 画布 + 模态编辑 / 后端 RPC / **网表导出 + lint** / 预览截图 |
+| **D1 起步** | ✅ **仿真**（ngspice 瞬态 + 波形图）、示例电路 `?load=lowpass`、位号不随元件旋转 |
 
 ---
 

@@ -121,8 +121,10 @@ RP1B 2 3 <500k·(1−t)>
 引脚 1/2/3 的**几何位置**由 `symbols.json` 决定（左端 / 上方抽头 / 右端），
 与"哪个是下端"无关 —— 网表只看 `pinOrder`。
 
-变阻器接法（只接 1、2 两脚）时，设计器**自动**给 `P1B` 加 `open`（1 TΩ）或用开关实现；
-这一点在属性面板里以"接法：分压 / 可变电阻"选择。
+**接法由外部接线决定，属性面板不提供"接法"选项**：
+图纸上怎么连就是怎么连 —— 只连 1、2 两脚（变阻器接法）时，3 号脚自然悬空，
+`RP1B` 的另一端就是那个悬空网络，网表照实生成；lint 会给"悬空引脚"的 warn 提醒。
+这样"元件属性"和"电路事实"不会出现两套说法。
 
 ---
 
@@ -156,8 +158,15 @@ cargo run -q -p rustomp-import -- OUT1.cir --mna src/generated/circuit.rs --chec
 cargo test --workspace
 ```
 
-**已实现**：`designer.netlist`（后端 `backend/src/netlist.rs`）—— 前端每次改图防抖 300 ms 调一次，
-状态栏显示 error/warn 计数，「网表 ▾」可展开全文，「生成网表」在有 error 时拒绝下载。
+**已实现**：
+
+| RPC | 后端 | 作用 |
+|---|---|---|
+| `designer.netlist` | `netlist.rs` | 前端每次改图防抖 300 ms 调一次；状态栏显示 error/warn，「网表 ▾」展开全文，「生成网表」在有 error 时拒绝下载 |
+| `designer.simulate` | `sim.rs` | 【仿真】按钮：临时拼上源与 `.tran`（**不进交付的 `.cir`**），跑 ngspice，`wrdata` 取波形画图 |
+
+仿真的两个约定：① 图纸上没有 `voltage-source` 时，自动在 `in` 网络挂 `SIN(0 amp freq 0 0 0)`；
+② 默认 10 ms 窗口（3 ms 只能看到瞬态，低通/大时间常数要更长）。
 `designer.codegen`（第 3 步）留给 D1。
 
 ---

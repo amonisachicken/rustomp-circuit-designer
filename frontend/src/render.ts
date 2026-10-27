@@ -3,7 +3,7 @@
 // 全部用原生 SVG DOM（不引框架）。坐标系：1 单位 = 1 mm，视图变换只改 <g> 的 transform。
 
 import { GRID, toWorld, type Doc, type Part, type Vec } from "./model";
-import type { SymbolTable } from "./symbols";
+import type { SymbolSpec, SymbolTable } from "./symbols";
 
 const NS = "http://www.w3.org/2000/svg";
 export const el = <K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] =>
@@ -129,19 +129,21 @@ function renderPart(
   selected: boolean,
 ): SVGGElement {
   const sym = table.symbols[part.symbol];
-  const g = el("g");
-  g.dataset["partId"] = part.id;
-  if (selected) g.classList.add("selected");
-  if (!sym) return g;
+  // 外层 wrapper 不带变换；里面两个子组：
+  //   artG  —— 平移+缩放+旋转+镜像（只作用在图形上）
+  //   labels —— 只缩放不旋转（位号/数值必须保持正向，prompt.md）
+  const wrapper = el("g");
+  wrapper.dataset["partId"] = part.id;
+  if (selected) wrapper.classList.add("selected");
+  if (!sym) return wrapper;
+
+  const p = mmToScreen(part.at, view);
+  const artG = el("g");
+  const mirror = part.mirror === "x" ? "scale(-1,1)" : part.mirror === "y" ? "scale(1,-1)" : "";
+  artG.setAttribute("transform", `translate(${p.x} ${p.y}) scale(${view.scale}) rotate(${part.rot}) ${mirror}`);
 
   const a = art(sym.file);
-  const p = mmToScreen(part.at, view);
-  g.setAttribute("transform", `translate(${p.x} ${p.y}) scale(${view.scale}) rotate(${part.rot}) ${
-    part.mirror === "x" ? "scale(-1,1)" : part.mirror === "y" ? "scale(1,-1)" : ""
-  }`);
-
   if (a) {
-    // 素材的 viewBox 是画布坐标；把它平移成"以符号原点为中心"
     const nested = el("svg");
     nested.setAttribute("x", `${-sym.origin.x}`);
     nested.setAttribute("y", `${-sym.origin.y}`);
@@ -150,10 +152,10 @@ function renderPart(
     nested.setAttribute("viewBox", a.viewBox);
     nested.setAttribute("overflow", "visible");
     nested.innerHTML = a.inner;
-    g.append(nested);
+    artG.append(nested);
   }
 
-  // 引脚热点（hover 用；也是"导线吸附点"的视觉提示）
+  // 引脚热点（hover / 选中时可见；也是"导线吸附点"的提示）
   const pinsG = el("g");
   pinsG.setAttribute("class", "pins");
   for (const pin of sym.pins) {
@@ -164,29 +166,84 @@ function renderPart(
     c.dataset["pin"] = pin.id;
     pinsG.append(c);
   }
-  g.append(pinsG);
+  artG.append(pinsG);
+  wrapper.append(artG);
 
-  // 参考编号（浮在位号；别名默认不显示 —— prompt.md）
-  const label = el("text");
-  label.setAttribute("x", `${sym.canvas.w / 2 - sym.origin.x}`);
-  label.setAttribute("y", `${sym.canvas.h - sym.origin.y + 2.5}`);
-  label.setAttribute("class", "ref");
-  label.setAttribute("text-anchor", "middle");
-  label.textContent = part.ref;
-  g.append(label);
+  const labelG = el("g");
+  labelG.setAttribute("class", "labels");
+  // 位号用世界坐标 → 要带上同样的平移与缩放（只是不旋转）
+  labelG.setAttribute("transform", `translate(${view.pan.x} ${view.pan.y}) scale(${view.scale})`);
+  const anchor = labelAnchor(part, sym);
+  const vertical = sym.canvas.h > sym.canvas.w;
+  const ref = el("text");
+  ref.setAttribute("x", `${anchor.x}`);
+  if (vertical) ref.setAttribute("text-anchor", "start");
+  ref.setAttribute("y", `${anchor.y}`);
+  ref.setAttribute("class", "ref");
+  if (!vertical) ref.setAttribute("text-anchor", "middle");
+  ref.textContent = part.alias ? `${part.ref} (${part.alias})` : part.ref;
+  labelG.append(ref);
 
-  // 数值（可选显示）
   if (part.value || part.model) {
     const v = el("text");
-    v.setAttribute("x", `${sym.canvas.w / 2 - sym.origin.x}`);
-    v.setAttribute("y", `${sym.canvas.h - sym.origin.y + 5.5}`);
+    v.setAttribute("x", `${anchor.x}`);
+    v.setAttribute("y", `${anchor.y + 3.4}`);
     v.setAttribute("class", "value");
-    v.setAttribute("text-anchor", "middle");
+    if (vertical) v.setAttribute("text-anchor", "start");
+    else v.setAttribute("text-anchor", "middle");
     v.textContent = part.value ?? part.model ?? "";
-    g.append(v);
+    labelG.append(v);
   }
+  wrapper.append(labelG);
+  return wrapper;
+}
 
-  return g;
+/** 位号锚点：元件"旋转后的画布包围盒"底部中心 + 2.5 mm */
+export function labelAnchor(part: Part, sym: SymbolSpec): Vec {
+  const corners: Vec[] = [
+    { x: -sym.origin.x, y: -sym.origin.y },
+    { x: sym.canvas.w - sym.origin.x, y: -sym.origin.y },
+    { x: -sym.origin.x, y: sym.canvas.h - sym.origin.y },
+    { x: sym.canvas.w - sym.origin.x, y: sym.canvas.h - sym.origin.y },
+  ].map((c) => toWorld(c, part));
+  const minX = Math.min(...corners.map((c) => c.x));
+  const maxX = Math.max(...corners.map((c) => c.x));
+  const minY = Math.min(...corners.map((c) => c.y));
+  const maxY = Math.max(...corners.map((c) => c.y));
+  // 竖放的元件（如旋转 90° 的电容）把位号放右边，避免压到连线上
+  if (maxY - minY > maxX - minX) {
+    return { x: maxX + 2.5, y: (minY + maxY) / 2 };
+  }
+  return { x: (minX + maxX) / 2, y: maxY + 2.5 };
+}
+
+/** 把内容装进视口（载入示例/新建后调用） */
+export function fitView(
+  doc: Doc,
+  table: SymbolTable,
+  viewport: { w: number; h: number },
+): View {
+  const pts: Vec[] = [];
+  for (const p of doc.parts) {
+    const sym = table.symbols[p.symbol];
+    if (!sym) continue;
+    for (const pin of sym.pins) pts.push(toWorld(pin.at, p));
+    pts.push(p.at);
+  }
+  for (const w of doc.wires) pts.push(...w.points);
+  if (!pts.length) return { scale: 8, pan: { x: 120, y: 100 } };
+
+  const minX = Math.min(...pts.map((p) => p.x));
+  const maxX = Math.max(...pts.map((p) => p.x));
+  const minY = Math.min(...pts.map((p) => p.y));
+  const maxY = Math.max(...pts.map((p) => p.y));
+  const pad = 15; // mm
+  const w = Math.max(maxX - minX + pad * 2, 40);
+  const h = Math.max(maxY - minY + pad * 2, 30);
+  const scale = Math.min(viewport.w / w, viewport.h / h, 24);
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  return { scale, pan: { x: viewport.w / 2 - cx * scale, y: viewport.h / 2 - cy * scale } };
 }
 
 /** 元件所有引脚的世界坐标（网表/连线判定唯一来源） */

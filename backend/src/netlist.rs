@@ -428,10 +428,11 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
         }
 
         if p.symbol == "potentiometer" && nodes.len() == 3 {
-            // 展开成两段电阻：A = 1–2，B = 2–3（docs/05 §5）
+            // 展开成两段电阻：A = 1–2，B = 2–3；**按 50% 抽头**写标称值（docs/05 §5）
             let max = p.value.clone().unwrap_or_else(|| "500k".into());
-            cir.push_str(&format!("R{}A {} {} {max}\n", p.r#ref, nodes[0], nodes[1]));
-            cir.push_str(&format!("R{}B {} {} {max}\n", p.r#ref, nodes[1], nodes[2]));
+            let half = half_value(&max);
+            cir.push_str(&format!("R{}A {} {} {half}\n", p.r#ref, nodes[0], nodes[1]));
+            cir.push_str(&format!("R{}B {} {} {half}\n", p.r#ref, nodes[1], nodes[2]));
             continue;
         }
         // 电源符号（voltage-source）：DC 值
@@ -474,6 +475,27 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
         .collect();
 
     Generated { cir, lints, ports, nets: net_infos, dangling }
+}
+
+/// 电位器标称值：按 **50% 抽头** 展开成两段（`RPxA = max·t`、`RPxB = max·(1−t)`）。
+/// 抽头位置由 `* @rustomp param` 指令在 DSP 侧参数化，网表里写**标称值**即可（docs/05 §5）。
+fn half_value(value: &str) -> String {
+    let t = value.trim();
+    let split = t.find(|c: char| !(c.is_ascii_digit() || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E'));
+    let (num, unit) = match split {
+        Some(i) => t.split_at(i),
+        None => (t, ""),
+    };
+    match num.parse::<f64>() {
+        Ok(v) => {
+            let h = v / 2.0;
+            // 去掉多余小数 0（250k 而不是 250.000k）
+            let txt = format!("{h:.6}");
+            let txt = txt.trim_end_matches('0').trim_end_matches('.').to_string();
+            format!("{txt}{unit}")
+        }
+        Err(_) => value.to_string(),
+    }
 }
 
 fn dsu_root(dsu: &Dsu, k: (i64, i64)) -> (i64, i64) {
@@ -523,7 +545,8 @@ mod tests {
             name: "分压".into(),
             parts: vec![
                 part("p3", "GND1", "earth", -12.5, 12.5, 0),
-                part("p4", "IN1", "node-in", 25.0, 0.0, 0), // 引脚世界坐标 (12.5,0) = R1.2
+                // node-in 是 OUT 的水平镜像：引脚在符号右侧（local +12.5），所以 at=(0,0) 时落在 (12.5,0)
+                part("p4", "IN1", "node-in", 0.0, 0.0, 0),
                 part("p5", "OUT1", "node-out", 65.0, 0.0, 0), // (52.5,0) = R2.2
                 r1,
                 r2,
@@ -603,15 +626,16 @@ R2 IN OUT 10k
         pot.alias = Some("gain".into());
         let d = Document {
             name: "pot".into(),
-            parts: vec![pot, part("p2", "GND1", "earth", -12.5, 12.5, 0), part("p3", "IN1", "node-in", 25.0, 0.0, 0)],
+            parts: vec![pot, part("p2", "GND1", "earth", -12.5, 12.5, 0), part("p3", "IN1", "node-in", 0.0, 0.0, 0)],
             wires: vec![],
         };
         let g = generate(&d, &table());
         assert!(g.cir.contains("* @rustomp param P1A gain pot max=500k"));
         assert!(g.cir.contains("* @rustomp param P1B gain pot max=500k invert"));
         // 引脚 1（左）= 地、2（抽头）= 自动命名 n1、3（右）= IN
-        assert!(g.cir.contains("RP1A 0 n1 500k"), "实际：\n{}", g.cir);
-        assert!(g.cir.contains("RP1B n1 IN 500k"), "实际：\n{}", g.cir);
+        // 50% 抽头：两段标称值都是 max/2（param 指令里保留 max=500k）
+        assert!(g.cir.contains("RP1A 0 n1 250k"), "实际：\n{}", g.cir);
+        assert!(g.cir.contains("RP1B n1 IN 250k"), "实际：\n{}", g.cir);
     }
 
     #[test]

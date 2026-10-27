@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- In 节点 / Input Node | GB/T 4728.3 | 画布 25 x 15 mm (2.5 mm 栅格) | 引脚: (2.5,7.5) -->
-<svg xmlns="http://www.w3.org/2000/svg" width="25mm" height="15mm" viewBox="0 0 25 15"><g transform="translate(15.0,7.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="-12.5" y1="0" x2="-6" y2="0" />
-      <path d="M -6 -5 L 2 -5 L 6 0 L 2 5 L -6 5 Z" />
-      <text x="-2.2" y="0.95" text-anchor="middle" stroke="none" fill="#0f172a" font-size="2.6" font-family="Consolas, monospace">In</text>
+<!-- In 节点 / Input Node | GB/T 4728.3 | 画布 25 x 15 mm (2.5 mm 栅格) | 引脚: (22.5,7.5) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="25mm" height="15mm" viewBox="0 0 25 15"><g transform="translate(10.0,7.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <!-- IN 是 OUT 的水平镜像：引脚在右侧（朝电路），尖角朝左 -->
+      <line x1="12.5" y1="0" x2="6" y2="0" />
+      <path d="M 6 -5 L -2 -5 L -6 0 L -2 5 L 6 5 Z" />
+      <text x="2.2" y="0.95" text-anchor="middle" stroke="none" fill="#0f172a" font-size="2.6" font-family="Consolas, monospace">In</text>
     </g>
-
-    
-    </svg>
+</svg>

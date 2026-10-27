@@ -125,6 +125,12 @@ def main() -> int:
             problems.append(f"{slug}: make-symbols.py 的 PINS 表里没有 {num}")
         elif kit is not None:
             want = [(round(x, 4), round(y, 4)) for x, y in kit]
+            # 允许符号相对 kit 原稿做镜像（在 overrides 里显式声明 `kit_mirror`）
+            flip = ov.get("kit_mirror")
+            if flip == "x":
+                want = [(-x, y) for x, y in want]
+            elif flip == "y":
+                want = [(x, -y) for x, y in want]
             if want != local:
                 problems.append(
                     f"{slug}: 注释坐标 {local} ≠ PINS 表 {want}（差 {[(round(a[0]-b[0],3), round(a[1]-b[1],3)) for a,b in zip(local,want)]}）"

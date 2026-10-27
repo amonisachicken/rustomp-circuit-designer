@@ -1,5 +1,5 @@
 {
-  "_comment": "手写的引脚名 / SPICE 顺序 / 可用型号（几何推导不出来的部分）。坐标 key = 局部坐标（符号原点为原点，mm），格式 \"x,y\"。几何一变 key 就对不上 → 脚本报错（docs/04 §2.1）。",
+  "_comment": "手写的引脚名 / SPICE 顺序 / 可用型号（几何推导不出来的部分）。坐标 key = 局部坐标（符号原点为原点，mm），格式 \"x,y\"。几何一变 key 就对不上 → 脚本报错（docs/04 §2.1）。　`kit_mirror` 表示该符号相对 kit 原稿做了镜像（IN 节点水平镜像：引脚朝右对着电路，与 OUT 区分；kit 的 PINS 表仍记录原稿坐标）。",
   "resistor": {
     "pins": {
       "-12.5,0": "1",
@@ -246,7 +246,7 @@
   },
   "node-in": {
     "pins": {
-      "-12.5,0": "IN"
+      "12.5,0": "IN"
     },
     "spice": {
       "prefix": "",
@@ -256,7 +256,8 @@
     },
     "models": [],
     "category": "port",
-    "port": "in"
+    "port": "in",
+    "kit_mirror": "x"
   },
   "node-out": {
     "pins": {

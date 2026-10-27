@@ -592,6 +592,8 @@ async function runSim(): Promise<void> {
 }
 
 $("#helpClose").addEventListener("click", () => $<HTMLDialogElement>("#help").close());
+// 顶栏「?」：与按 h 同一个入口
+$("#btnHelp").addEventListener("click", () => $<HTMLDialogElement>("#help").showModal());
 
 $("#btnCodegen").addEventListener("click", async () => {
   $("#hint").textContent = "生成代码中…";
@@ -797,6 +799,17 @@ async function main(): Promise<void> {
     const afterUndo = doc.parts.length;
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "y", metaKey: true, bubbles: true }));
     results.push(`redo-ctrl-y=${afterUndo === n0 && doc.parts.length === n0 + 1}`);
+
+    // ⑬ 顶栏「?」按钮
+    $<HTMLDialogElement>("#help").close();
+    $<HTMLButtonElement>("#btnHelp").click();
+    results.push(`btn-help=${$<HTMLDialogElement>("#help").open}`);
+    $<HTMLDialogElement>("#help").close();
+
+    // ⑭ IN 节点是 OUT 的水平镜像（引脚在右侧 → 从库里拿出来方向就对）
+    const pinIn = table.symbols["node-in"]!.pins[0]!.at;
+    const pinOut = table.symbols["node-out"]!.pins[0]!.at;
+    results.push(`in-mirrored=${pinIn.x > 0 && pinOut.x < 0}`);
 
     const ok = results.every((x) => x.endsWith("=true"));
     $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;

@@ -135,7 +135,7 @@ def noninverting() -> Doc:
     """同相放大：OUT 经 R1 反馈到 IN−，IN− 经 R2 到地，增益 = 1 + R1/R2。"""
     d = Doc("同相放大（非反相）")
     op = d.part("U1", "opamp", (0, 0), model="OP07A")        # IN+(-15,-5) IN-(-15,5) OUT(15,0) V+(0,-12.5) V-(0,12.5)
-    inp = d.part("IN1", "node-in", (-50, -5))                # 引脚 (-62.5,-5)
+    inp = d.part("IN1", "node-in", (-45, -5))                # 引脚在符号右侧 → world (-32.5,-5)
     out = d.part("OUT1", "node-out", (60, 0))                # 引脚 (47.5,0)
     rf = d.part("R1", "resistor", (-5, -25), value="100k")   # 引脚 (-17.5,-25)/(7.5,-25)
     rg = d.part("R2", "resistor", (-30, 17.5), rot=90, value="10k")  # 引脚 (-30,5)/(-30,30)
@@ -171,7 +171,7 @@ def common_emitter() -> Doc:
     rb = d.part("R3", "resistor", (-12.5, -25), rot=90, value="470k") # 引脚 (-12.5,-37.5)/(-12.5,-12.5)
     cin = d.part("C1", "capacitor", (-37.5, 0), value="47n")          # 引脚 (-50,0)/(-25,0)
     cout = d.part("C2", "capacitor", (17.5, -12.5), value="1u")       # 引脚 (5,-12.5)/(30,-12.5)
-    inp = d.part("IN1", "node-in", (-62.5, 0))
+    inp = d.part("IN1", "node-in", (-62.5, 0))  # 引脚在右侧 → world (-50,0) = Cin.1
     out = d.part("OUT1", "node-out", (42.5, -12.5))
     vcc = d.part("VCC1", "vcc", (2.5, -50))                  # 引脚 (2.5,-37.5)
     gnd = d.part("GND1", "earth", (2.5, 50))                 # 引脚 (2.5,37.5)
@@ -192,7 +192,7 @@ def common_emitter() -> Doc:
 def diode_clip() -> Doc:
     """非对称削波：R1 串联，两只二极管**反向并联到地**（D1=1N4148 硬削、D2=1N34A 软削）。"""
     d = Doc("二极管削波（非对称）")
-    inp = d.part("IN1", "node-in", (-60, 0))          # 引脚 (-72.5,0)
+    inp = d.part("IN1", "node-in", (-45, 0))           # 引脚在符号右侧 → world (-32.5,0) = R1.1
     out = d.part("OUT1", "node-out", (60, 0))         # 引脚 (47.5,0)
     rs = d.part("R1", "resistor", (-20, 0), value="10k")   # 引脚 (-32.5,0)/(-7.5,0)
     # rot 90 → A 在下、K 在上；rot 270 → K 在下、A 在上（正好反并联）

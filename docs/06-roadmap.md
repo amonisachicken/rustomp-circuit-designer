@@ -88,7 +88,7 @@
 | **M-A** | 画出的图 → `.cir` → ngspice 能跑 | 只依赖 ngspice（✅） |
 | **M-B** | 画出的图 → `.cir` → `rustomp-import --mna` 生成 `Ckt` 并通过编译 | 依赖 rustomp S1a/S1b（✅ 已完成） |
 | **M-C** | 生成的 `Ckt` 的 THD 与设计器自己的仿真一致（同一把尺子） | 依赖 `rustomp-oracle` — ✅ **2026-10-27 成立**：`lowpass` 0.0000/0.0000、`diode-clip` 26.554/26.554、`pretty-face` 60.53/60.93（测试在 rustomp 仓 `crates/rustomp-dsp/tests/mc_closed_loop_*.rs`） |
-| **M-D** | 生成的 `Ckt` 直接进插件（`Engine<Ckt>`）并在 Logic 里出声 | 依赖 rustomp 插件链路（✅ 已有） |
+| **M-D** | 生成的 `Ckt` 直接进插件（`Engine<Ckt>`）并在 Logic 里出声 | 依赖 rustomp 插件链路 — ✅ **2026-10-27 成立**：设计器工程 → 生成电路 → 插件项目 `pretty-face` → CLAP/VST3 + AU 自检（RMS 0.132、无 NaN）；"在 Logic 里弹一下"留作人工验收 |
 
 ---
 

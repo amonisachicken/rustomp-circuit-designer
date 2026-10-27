@@ -10,6 +10,7 @@
 | `05-netlist-contract.md` | 网表输出契约、指令集、节点命名、各符号映射、**分支导出**、lint | **接口变更时两边同时改** |
 | `06-roadmap.md` | D0–D4 分阶段计划、里程碑、明确不做的事 | 排期时 |
 | `../assets/gb4728-symbols-kit/README.md` | 符号绘制手册（原作，18 KB） | 补符号时 |
+| `../prompt.md` | **原始需求书**（用户写的交互与元件要求：模态编辑、快捷键、INPUT/OUTPUT 封装） | 与 `03-editor-model.md` 冲突时**以它为准** |
 
 ## 与 rustomp 规范的对应
 

@@ -9,10 +9,13 @@
 
 | 项 | 内容 | 验收 |
 |---|---|---|
-| 工程 | `frontend/`（Vite + TS）+ `backend/`（axum），与 breadspice 同构 | `npm run dev` + `cargo run` 能通 |
-| 协议 | `protocol.ts` ↔ `protocol.rs`：`designer.ping` / `designer.symbols` | 前端拿得到符号清单 |
-| 符号清单 | `tools/gen-symbols.py` 生成 `symbols/symbols.json`（16 个符号 + 引脚名） | 校验脚本全过；引脚坐标三方一致 |
-| 画布 | SVG 画布 + 2.5 mm 栅格 + 缩放/平移 | 能放进一个电阻、旋转 90° |
+| 工程 | `frontend/`（Vite + TS，零运行时依赖）+ `backend/`（axum） | ✅ `npm run dev` + `cargo run` 能通 |
+| 协议 | JSON-RPC：`designer.ping` / `designer.symbols` / **`designer.netlist`** | ✅ 前端拿得到符号清单与网表 |
+| 符号清单 | `tools/gen-symbols.py` → `symbols/symbols.json`（16 符号 + 引脚名），与 kit 的 PINS 表交叉校验 | ✅ `--check` 无漂移 |
+| 画布 | SVG 画布 + 2.5 mm 栅格 + 中键平移/滚轮缩放 | ✅ |
+| 模态编辑 | `r/c/w/q/m/空格/d` + `esc`、`ctrl+r`/`ctrl+e`、撤销重做 | ✅ |
+| 网表导出 | 并查集求网络、正交导线、`in=/out=` 指令、单份 `.cir` + lint（6 条） | ✅ 9 个后端测试（含黄金文件） |
+| 预览截图 | 工具栏「预览」→ 可保存 PNG（D-008） | ✅ |
 
 > D0 的关键不是界面，而是**符号清单**：它错了，后面所有坐标都是错的。
 

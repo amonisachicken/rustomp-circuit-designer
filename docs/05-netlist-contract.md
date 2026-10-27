@@ -156,8 +156,9 @@ cargo run -q -p rustomp-import -- OUT1.cir --mna src/generated/circuit.rs --chec
 cargo test --workspace
 ```
 
-设计器后端应当**内置第 2、3 步**（JSON-RPC 方法 `designer.netlist` / `designer.codegen`），
-让"画完立刻知道能不能生成、生成出来的 THD 对不对"成为一键操作。
+**已实现**：`designer.netlist`（后端 `backend/src/netlist.rs`）—— 前端每次改图防抖 300 ms 调一次，
+状态栏显示 error/warn 计数，「网表 ▾」可展开全文，「生成网表」在有 error 时拒绝下载。
+`designer.codegen`（第 3 步）留给 D1。
 
 ---
 
@@ -172,12 +173,10 @@ cargo test --workspace
 | 重复参考编号 | error | 两个 `R1` |
 | 型号不在闭集 | error | 直接挡住（生成器也会挡，但这里要**提前**报） |
 | 电位器只接 2 脚且未选"变阻器" | warn | 容易画错 |
-| 开关数 > 3 | error | 分支爆炸（2ⁿ） |
-| 开关在电源/地路径上 | error | 会产生未供电分支 |
-| 某分支无输出端口 | warn | 该分支标 `valid:false` |
-| 条件元件/导线的状态组合不存在 | error | 条件写错了（如 `{SW1:"C"}` 但 SW1 只有 A/B） |
 | 电源引脚接反（V+ 接地 / V− 接 VCC） | warn | 单向电源电路的常见手误 |
 | 同一网络多个驱动源 | warn | 两个电压源并联 |
 | 运放未接电源 | warn | rustomp 的宏模型不要求接电源，但图纸应完整 |
 
 > `error` 阻断导出；`warn` 允许导出但要在提示区列出（用户可以"忽略一次"）。
+>
+> **开关相关的 lint 已随 D-007 删除**（本项目不做开关，导出永远是单份网表）。

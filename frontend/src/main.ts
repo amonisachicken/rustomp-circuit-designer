@@ -1,6 +1,7 @@
 // 入口：装配画布、键盘/鼠标、元件库、属性面板、撤销重做、预览截图。
 // 交互规则见 docs/03 §3（D-009：模态编辑，无拖放）。
 
+import { backend, type NetlistResult } from "./backend";
 import { emptyDoc, snap, type Doc, type Part } from "./model";
 import { loadAllArt, loadArt, loadSymbols, type SymbolTable } from "./symbols";
 import { mmToScreen, render, screenToMm, type View } from "./render";
@@ -65,6 +66,60 @@ function makeHooks(tableRef: SymbolTable): EditorHooks {
   };
 }
 
+// ---------------------------------------------------------------- 网表（后端生成）
+
+let netlist: NetlistResult | null = null;
+let netlistError: string | null = null;
+let refreshTimer: number | undefined;
+
+/** 文档变了就防抖刷新网表预览（状态栏/网表面板用） */
+function scheduleNetlist(): void {
+  window.clearTimeout(refreshTimer);
+  refreshTimer = window.setTimeout(() => void refreshNetlist(), 300);
+}
+
+async function refreshNetlist(): Promise<void> {
+  try {
+    netlist = await backend.netlist(doc);
+    netlistError = null;
+  } catch (e) {
+    netlist = null;
+    netlistError = e instanceof Error ? e.message : String(e);
+  }
+  renderNetlist();
+}
+
+function renderNetlist(): void {
+  const pane = $<HTMLElement>("#netlistPane");
+  const text = $("#netlistText");
+  const lints = $("#netlistLints");
+  if (netlistError) {
+    text.textContent = `后端未连接：${netlistError}\n\n先启动后端：cd backend && cargo run`;
+    lints.innerHTML = `<span class="err">✗ 无法生成网表</span>`;
+    return;
+  }
+  if (!netlist) {
+    text.textContent = "（还没生成）";
+    lints.textContent = "";
+    return;
+  }
+  text.textContent = netlist.cir;
+  const errs = netlist.lints.filter((l) => l.level === "error");
+  const warns = netlist.lints.filter((l) => l.level === "warn");
+  lints.innerHTML = [
+    errs.length ? `<span class="err">✗ ${errs.length} error</span>` : `<span class="ok">✓ 无 error</span>`,
+    warns.length ? `<span class="warn">! ${warns.length} warn</span>` : "",
+  ]
+    .filter(Boolean)
+    .join(" &#183; ");
+  if (errs.length) {
+    const list = errs.map((e) => `· ${e.msg}`).join("\n");
+    pane.dataset["errors"] = list;
+  } else {
+    delete pane.dataset["errors"];
+  }
+}
+
 // ---------------------------------------------------------------- 渲染
 
 function ghostOf(): { part: Part; at: { x: number; y: number }; valid: boolean } | null {
@@ -97,6 +152,7 @@ function repaint(): void {
   canvas.style.cursor = cursorFor(mode);
   $("#stats").textContent = `${doc.parts.length} 元件 · ${doc.wires.length} 导线`;
   $("#pos").textContent = `${hoverMm.x.toFixed(1)}, ${hoverMm.y.toFixed(1)} mm`;
+  scheduleNetlist();
 }
 
 // ---------------------------------------------------------------- 键盘
@@ -388,6 +444,34 @@ $("#btnSave").addEventListener("click", () => {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 });
 $("#btnPreview").addEventListener("click", () => void previewPng());
+
+$("#btnNetlist").addEventListener("click", async () => {
+  await refreshNetlist();
+  if (!netlist) {
+    $("#hint").textContent = `生成失败：${netlistError ?? "未知错误"}`;
+    return;
+  }
+  const errs = netlist.lints.filter((l) => l.level === "error");
+  if (errs.length) {
+    $("#netlistPane").hidden = false;
+    $("#hint").textContent = `有 ${errs.length} 个 error，先修好再导出：${errs[0]?.msg ?? ""}`;
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([netlist.cir], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${doc.name}.cir`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  $("#hint").textContent = `已导出 ${doc.name}.cir（${netlist.lints.length} 条提示）`;
+});
+
+$("#btnNetlistToggle").addEventListener("click", () => {
+  const pane = $<HTMLElement>("#netlistPane");
+  pane.hidden = !pane.hidden;
+  if (!pane.hidden) void refreshNetlist();
+});
+$("#netlistClose").addEventListener("click", () => ($("#netlistPane").hidden = true));
 
 /** 预览 = 可保存的截图（D-008） */
 async function previewPng(): Promise<void> {

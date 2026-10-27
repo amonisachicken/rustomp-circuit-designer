@@ -15,7 +15,7 @@
       <button id="btnNew" title="新建">新建</button>
       <button id="btnSave" title="保存 .design.json">保存</button>
       <button id="btnPreview" title="预览 = 生成可保存的截图">预览</button>
-      <button id="btnNetlist" title="生成网表（D1）" disabled>生成网表</button>
+      <button id="btnNetlist" title="生成网表并下载 .cir">生成网表</button>
       <span class="step"></span>
       <span id="mode" class="mode">查看</span>
     </header>
@@ -26,12 +26,23 @@
     </main>
 
     <footer id="status">
+      <button id="btnNetlistToggle" title="展开/收起网表预览">网表 ▾</button>
       <span id="hint">载入中…</span>
       <span class="grow"></span>
       <span id="stats"></span>
       <span class="sep">·</span>
       <span id="pos"></span>
     </footer>
+
+    <section id="netlistPane" hidden>
+      <header>
+        <strong>网表预览</strong>
+        <span id="netlistLints"></span>
+        <span class="grow"></span>
+        <button id="netlistClose">收起</button>
+      </header>
+      <pre id="netlistText"></pre>
+    </section>
 
     <dialog id="palette">
       <h2>元件库（点一个进入放置模式）</h2>

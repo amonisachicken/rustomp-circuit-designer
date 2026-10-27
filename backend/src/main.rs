@@ -8,6 +8,8 @@ use axum::{extract::State, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{path::PathBuf, sync::Arc};
+
+mod netlist;
 use tower_http::cors::CorsLayer;
 
 #[derive(Clone)]
@@ -18,6 +20,7 @@ struct App {
 #[derive(Deserialize)]
 struct RpcRequest {
     method: String,
+    /// 各方法自己解析（netlist 要收 Document）
     #[serde(default)]
     params: Value,
 }
@@ -50,6 +53,22 @@ async fn rpc(State(app): State<Arc<App>>, Json(req): Json<RpcRequest>) -> Json<R
                 },
                 Err(e) => err(format!("读不到 {}：{e}（先跑 tools/gen-symbols.py）", path.display())),
             }
+        }
+        "designer.netlist" => {
+            let path = app.root.join("symbols/symbols.json");
+            let table: netlist::SymbolTable = match std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|t| serde_json::from_str(&t).ok())
+            {
+                Some(t) => t,
+                None => return err(format!("读不到 {}", path.display())),
+            };
+            let doc: netlist::Document = match serde_json::from_value(req.params) {
+                Ok(d) => d,
+                Err(e) => return err(format!("Document 解析失败：{e}")),
+            };
+            let g = netlist::generate(&doc, &table);
+            ok(serde_json::to_value(g).unwrap_or(Value::Null))
         }
         other => err(format!("未知方法：{other}")),
     }

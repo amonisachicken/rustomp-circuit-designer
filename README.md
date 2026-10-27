@@ -28,10 +28,14 @@
 已经能跑：
 
 ```bash
-./tools/gen-symbols.py            # 符号 → symbols/symbols.json（含与 kit PINS 表的交叉校验）
-cd frontend && npm install && npm run dev    # 画布 + 模态编辑（r/c/w/q/m/空格/d + esc）
-cd backend && cargo run           # 后端（designer.ping / designer.symbols）
+./tools/gen-symbols.py                        # 符号 → symbols/symbols.json（与 kit 的 PINS 表交叉校验）
+cd backend && cargo run                       # 后端：designer.ping / symbols / netlist（127.0.0.1:3600）
+cd frontend && npm install && npm run dev      # 画布 + 模态编辑（r/c/w/q/m/空格/d + esc）
+cd backend && cargo test                       # 9 个测试（含网表黄金文件）
 ```
+
+实测链路（M-B 雏形）：设计器画 `R1/R2 + GND + IN/OUT` → 导出 `.cir` →
+`cargo run -p rustomp-import -- designer_out.cir --mna out.rs` → **成功生成 `Ckt`（3 个未知量，节点 IN/OUT）**。
 
 | 项 | 状态 |
 |---|---|
@@ -43,7 +47,7 @@ cd backend && cargo run           # 后端（designer.ping / designer.symbols）
 | 符号 → 运行时清单（`symbols.json`） | ✅ 设计已定，脚本待写 `docs/04-symbol-pipeline.md` |
 | 网表输出契约（对接 `rustomp-import`） | ✅ `docs/05-netlist-contract.md` |
 | 分阶段计划 | ✅ `docs/06-roadmap.md` |
-| **D0 骨架** | 🚧 进行中：符号清单 ✅ / 前端画布 + 模态编辑 ✅ / 后端 ping+symbols ✅ / 网表导出 ⬜ |
+| **D0 骨架** | ✅ 完成：符号清单 / 画布 + 模态编辑 / 后端 RPC / **网表导出 + lint** / 预览截图 |
 
 ---
 

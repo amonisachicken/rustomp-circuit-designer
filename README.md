@@ -83,7 +83,7 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 | **导出布局** | 下载 `<名字>.design.json` |
 | **导入布局** | 读本地 `.design.json`（名字取文件里的 name，没有就用文件名） |
 | **预览** | 画布位图截图，可保存 PNG |
-| **仿真** | `tran` / `ac`（复用 breadspice 的 rawfile 通道）；**IN 兼作波形发生器**、**OUT 兼作示波器**、**测试点兼作电压表** |
+| **仿真** | `tran` / `ac`（复用 breadspice 的 rawfile 通道）；**IN 兼作波形发生器**（幅值/频率在它的属性里设）、**OUT 与测试点都是示波器**（双击看波形 + FFT） |
 | **生成网表 / 生成代码** | 见下 |
 
 ## 为什么复用 breadspice 的架构

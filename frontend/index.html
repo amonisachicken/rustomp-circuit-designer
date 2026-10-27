@@ -97,11 +97,10 @@
         <span id="simStatus" class="muted"></span>
       </p>
       <div id="simTranFields" class="simparams">
-        <label>幅值 <input id="simAmp" type="number" step="0.05" value="0.2"> V</label>
-        <label>频率 <input id="simFreq" type="number" step="100" value="1000"> Hz</label>
         <label>步长 <input id="simStep" type="number" step="any" value="0.00001"> s</label>
         <label>起始 <input id="simStart" type="number" step="any" value="0"> s</label>
         <label>持续 <input id="simDuration" type="number" step="any" value="0.02"> s</label>
+        <span class="muted">激励（幅值/频率）在 IN 元件的属性里设置</span>
       </div>
       <div id="simAcFields" class="simparams" hidden>
         <label>扫描
@@ -122,20 +121,13 @@
     </dialog>
 
     <dialog id="scope">
-      <h2>示波器（双击 OUT 元件打开）</h2>
+      <h2 id="scopeTitle">示波器</h2>
       <p id="scopeStatus" class="muted"></p>
       <svg id="scopePlot"></svg>
       <p style="text-align: right">
         <button id="scopeFft">频谱 FFT</button>
         <button id="scopeClose">关闭</button>
       </p>
-    </dialog>
-
-    <dialog id="meter">
-      <h2 id="meterTitle">电压表</h2>
-      <div id="meterValue">—</div>
-      <p id="meterHint" class="muted"></p>
-      <p style="text-align: right"><button id="meterClose">关闭</button></p>
     </dialog>
 
     <dialog id="preview">

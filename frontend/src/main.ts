@@ -267,6 +267,19 @@ canvas.addEventListener("pointermove", (ev) => {
   hoverMm = screenToMm({ x: ev.clientX - r.left, y: ev.clientY - r.top }, view);
   if (panning) return;
 
+  // 查看模式下按住左键拖动 → 平移视野（任意位置都能拖）
+  if (viewDrag) {
+    const dx = ev.clientX - viewDrag.last.x;
+    const dy = ev.clientY - viewDrag.last.y;
+    if (dx || dy) {
+      if (Math.abs(dx) + Math.abs(dy) > 2) viewDrag.moved = true;
+      view = { ...view, pan: { x: view.pan.x + dx, y: view.pan.y + dy } };
+      viewDrag.last = { x: ev.clientX, y: ev.clientY };
+      repaint();
+      return;
+    }
+  }
+
   // hover 高亮：把"当前 2×2 格内可点中的目标"标出来（不然用户不知道命中区多大）
   if (mode.kind === "view" || mode.kind === "delete") {
     const h = hitTest(doc, table, hoverMm);
@@ -359,14 +372,16 @@ canvas.addEventListener("pointerdown", (ev) => {
       return;
     }
     default: {
-      selectedId = partId ?? wireId ?? null;
-      if (partId) selectPart(partId, false);
-      repaint();
+      // 查看模式：先只记下起点。**拖动就平移**，没拖动才当点击选中（pointerup 里判定）
+      viewDrag = { last: { x: ev.clientX, y: ev.clientY }, moved: false, pid: partId, wid: wireId };
     }
   }
 });
 
 let hoverKey = "";
+
+/** 查看模式下按住左键：拖动 = 平移视野；没拖动 = 选中（在 pointerup 决定） */
+let viewDrag: { last: { x: number; y: number }; moved: boolean; pid: string | null; wid: string | null } | null = null;
 
 /** 双击检测状态（见 pointerdown 里的注释） */
 let lastClick: { id: string | null; t: number } = { id: null, t: 0 };
@@ -379,7 +394,21 @@ canvas.addEventListener("pointerdown", (ev) => {
   panning = { x: ev.clientX, y: ev.clientY };
   ev.preventDefault();
 });
-window.addEventListener("pointerup", () => (panning = null));
+window.addEventListener("pointerup", (ev) => {
+  panning = null;
+  if (viewDrag) {
+    const d = viewDrag;
+    viewDrag = null;
+    if (!d.moved) {
+      // 单击：选中元素（或点空白处取消选择）
+      selectedId = d.pid ?? d.wid ?? null;
+      if (d.pid) selectPart(d.pid, false);
+      else $("#props").hidden = true;
+      repaint();
+    }
+    void ev;
+  }
+});
 window.addEventListener("pointermove", (ev) => {
   if (!panning) return;
   view = { ...view, pan: { x: view.pan.x + (ev.clientX - panning.x), y: view.pan.y + (ev.clientY - panning.y) } };
@@ -462,6 +491,13 @@ function selectPart(partId: string, open: boolean): void {
           })()
         : ""
     }
+    ${
+      p.symbol === "node-in"
+        ? `<div class="row"><label>幅值</label><input id="p-amp" type="number" step="0.05" value="${p.amp ?? 0.2}"> V</div>
+           <div class="row"><label>频率</label><input id="p-freq" type="number" step="100" value="${p.freq ?? 1000}"> Hz</div>
+           <p class="muted" style="font-size:11px">IN 元件兼作波形发生器（只用于仿真）</p>`
+        : ""
+    }
     <label>旋转 <select id="p-rot">${[0, 90, 180, 270]
       .map((r) => `<option value="${r}" ${r === p.rot ? "selected" : ""}>${r}°</option>`)
       .join("")}</select></label>
@@ -494,6 +530,16 @@ function selectPart(partId: string, open: boolean): void {
     unitEl?.addEventListener("change", apply2);
   }
   bind("p-rot", (v) => (p.rot = Number(v) as Part["rot"]));
+  const ampEl = panel.querySelector<HTMLInputElement>("#p-amp");
+  const freqEl = panel.querySelector<HTMLInputElement>("#p-freq");
+  const applySignal = (): void => {
+    hooks.commit();
+    if (ampEl) p.amp = Number(ampEl.value);
+    if (freqEl) p.freq = Number(freqEl.value);
+    repaint();
+  };
+  ampEl?.addEventListener("change", applySignal);
+  freqEl?.addEventListener("change", applySignal);
 }
 
 // ---------------------------------------------------------------- 撤销 / 重做
@@ -620,8 +666,8 @@ async function openInstrument(part: Part): Promise<void> {
     $("#hint").textContent = `${part.ref} 还没接到电路上（找不到它的网络）`;
     return;
   }
-  if (part.symbol === "node-out") openScope(net);
-  else openMeter(net, part.ref);
+  // 测试点与 OUT 都是"当前节点示波器"，只是标题不同
+  openScope(net, part.symbol === "test-point" ? part.ref : undefined);
 }
 
 /** 某个元件的某个引脚落在哪个网络上（用后端返回的 nets 反查） */
@@ -648,6 +694,8 @@ function readSimParams(): { analysis: AnalysisKind; params: SimParams } {
     return {
       analysis,
       params: {
+        // AC 的激励幅度也取自 IN（默认 1 V RMS）
+        amp: doc.parts.find((p) => p.symbol === "node-in")?.amp ?? 1,
         sweep: ($<HTMLSelectElement>("#simAcSweep").value as "dec" | "oct" | "lin") ?? "dec",
         points: num("#simAcPoints", 100),
         f_start: num("#simAcStart", 10),
@@ -655,11 +703,13 @@ function readSimParams(): { analysis: AnalysisKind; params: SimParams } {
       },
     };
   }
+  // 激励参数来自 IN 元件（兼作波形发生器），弹窗只管"怎么跑"
+  const src = doc.parts.find((p) => p.symbol === "node-in");
   return {
     analysis: "tran",
     params: {
-      amp: num("#simAmp", 0.2),
-      freq: num("#simFreq", 1000),
+      amp: src?.amp ?? 0.2,
+      freq: src?.freq ?? 1000,
       step: num("#simStep", 1e-5),
       start: num("#simStart", 0),
       duration: num("#simDuration", 0.02),
@@ -720,8 +770,9 @@ async function runSim(): Promise<void> {
 // ---------------------------------------------------------------- 示波器（OUT 元件）/ 电压表（测试点）
 
 /** 双击 OUT 元件 → 示波器：看该网络（+ 输入做对照）的波形 */
-function openScope(net: string): void {
+function openScope(net: string, label?: string): void {
   const dlg = $<HTMLDialogElement>("#scope");
+  $("#scopeTitle").textContent = `${label ?? "OUT"} · 示波器（v(${net})）`;
   if (!lastSim) {
     $("#scopeStatus").textContent = "还没有仿真结果 —— 先点顶栏「仿真」";
     drawTraces($<SVGSVGElement>("#scopePlot"), []);
@@ -736,41 +787,14 @@ function openScope(net: string): void {
       xLabel: lastSim.analysis === "ac" ? "频率 Hz" : "时间 s",
       yLabel: lastSim.analysis === "ac" ? "幅度 dB" : "电压 V",
     });
-    $("#scopeStatus").textContent = `示波器：v(${net})（${lastSim.analysis} 分析）`;
+    $("#scopeStatus").textContent = `${label ? `${label} · ` : ""}示波器：v(${net})（${lastSim.analysis} 分析）`;
   }
   $<HTMLButtonElement>("#scopeFft").dataset["net"] = net;
   dlg.showModal();
 }
 
-/** 双击测试点 → 电压表：显示该点**到地**的电压 */
-function openMeter(net: string, ref: string): void {
-  const dlg = $<HTMLDialogElement>("#meter");
-  $("#meterTitle").textContent = `电压表 · ${ref} → 地（v(${net})）`;
-  if (!lastSim) {
-    $("#meterValue").textContent = "—";
-    $("#meterHint").textContent = "还没有仿真结果 —— 先点顶栏「仿真」";
-  } else {
-    const t = lastSim.traces.find((tr) => tr.name === `v(${net.toLowerCase()})`);
-    if (!t || !t.y.length) {
-      $("#meterValue").textContent = "—";
-      $("#meterHint").textContent = "这次仿真没有探到这个点（确认它已接进电路）";
-    } else if (lastSim.analysis === "ac") {
-      const f1k = t.x.findIndex((f) => f >= 1000);
-      const m = t.y[Math.max(f1k, 0)] ?? t.y[0]!;
-      $("#meterValue").textContent = `${(20 * Math.log10(Math.max(m, 1e-12))).toFixed(2)} dB`;
-      $("#meterHint").textContent = "AC 分析：显示 1 kHz 处的幅度（相对 1 V RMS）";
-    } else {
-      const last = t.y[t.y.length - 1]!;
-      const rms = Math.sqrt(t.y.reduce((s, v) => s + v * v, 0) / t.y.length);
-      const peak = t.y.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
-      $("#meterValue").textContent = `${last.toFixed(4)} V`;
-      $("#meterHint").textContent = `瞬态末值 · RMS ${rms.toFixed(4)} V · 峰值 ${peak.toFixed(4)} V · 点数 ${t.y.length}`;
-    }
-  }
-  dlg.showModal();
-}
 $("#scopeClose").addEventListener("click", () => $<HTMLDialogElement>("#scope").close());
-$("#meterClose").addEventListener("click", () => $<HTMLDialogElement>("#meter").close());
+
 $("#scopeFft").addEventListener("click", () => void runFft());
 
 async function runFft(): Promise<void> {
@@ -1064,17 +1088,46 @@ async function main(): Promise<void> {
       if (scopeNet) openScope(scopeNet);
       const scopeTraces = document.querySelectorAll("#scopePlot path.trace").length;
       $<HTMLDialogElement>("#scope").close();
+      // 测试点也应开成示波器（同一套仪表）
       const tp = doc.parts.find((p) => p.symbol === "test-point");
       const tpNet = tp ? netOfPin(tp.ref, "TP") : null;
-      if (tp && tpNet) openMeter(tpNet, tp.ref);
-      const meterText = $("#meterValue").textContent ?? "";
-      const meterOk = /V$/.test(meterText.trim());
-      $<HTMLDialogElement>("#meter").close();
-      simOk = hasOut && scopeTraces >= 1 && meterOk ? true : `out=${hasOut} traces=${scopeTraces} meter="${meterText}" tp=${tp?.ref},${tpNet}`;
+      let tpTraces = 0;
+      if (tp && tpNet) {
+        openScope(tpNet, tp.ref);
+        tpTraces = document.querySelectorAll("#scopePlot path.trace").length;
+        $<HTMLDialogElement>("#scope").close();
+      }
+      simOk =
+        hasOut && scopeTraces >= 1 && tpTraces >= 1
+          ? true
+          : `out=${hasOut} outTraces=${scopeTraces} tpTraces=${tpTraces} tp=${tp?.ref},${tpNet}`;
     } catch (e) {
       simOk = e instanceof Error ? e.message : String(e);
     }
-    results.push(`sim-scope-meter=${simOk}`);
+    results.push(`sim-scope=${simOk}`);
+
+    // ⑰ 查看模式下拖动 = 平移视野（且不改变选中）
+    const panBefore = { ...view.pan };
+    const rect = canvas.getBoundingClientRect();
+    const at = (dx: number, dy: number) => ({
+      clientX: rect.left + 40 + dx,
+      clientY: rect.top + 40 + dy,
+      bubbles: true,
+      button: 0,
+      pointerId: 1,
+    });
+    canvas.dispatchEvent(new PointerEvent("pointerdown", at(0, 0)));
+    canvas.dispatchEvent(new PointerEvent("pointermove", at(30, 20)));
+    window.dispatchEvent(new PointerEvent("pointerup", at(30, 20)));
+    const panMoved = view.pan.x === panBefore.x + 30 && view.pan.y === panBefore.y + 20;
+    // 单击（不拖）仍能选中元件
+    const r1 = doc.parts.find((p) => p.symbol === "resistor");
+    const r1Pos = mmToScreen(r1!.at, view);
+    const clickAt = { clientX: rect.left + r1Pos.x, clientY: rect.top + r1Pos.y, bubbles: true, button: 0 };
+    canvas.dispatchEvent(new PointerEvent("pointerdown", clickAt));
+    window.dispatchEvent(new PointerEvent("pointerup", clickAt));
+    const clickSelects = selectedId === r1!.id;
+    results.push(`view-drag-pan=${panMoved && clickSelects}`);
 
     const ok = results.every((x) => x.endsWith("=true"));
     $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;

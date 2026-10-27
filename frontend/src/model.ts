@@ -28,6 +28,9 @@ export interface Part {
   mirror: Mirror;
   /** 别名（默认不显示，D 见 prompt.md） */
   alias?: string;
+  /** 仅 `node-in` 用：兼作波形发生器的幅值（V）与频率（Hz） */
+  amp?: number;
+  freq?: number;
 }
 
 export interface Wire {

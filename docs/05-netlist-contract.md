@@ -167,7 +167,7 @@ cargo test --workspace
 | RPC | 后端 | 作用 |
 |---|---|---|
 | `designer.netlist` | `netlist.rs` | 前端每次改图防抖 300 ms 调一次；状态栏显示 error/warn，「网表 ▾」展开全文，「生成网表」在有 error 时拒绝下载 |
-| `designer.simulate` | `sim.rs` | 【仿真】：复用 breadspice 的 **rawfile 通道**（`ngspice -b -r`），支持 `tran` / `ac`；自动注入激励（IN 兼作波形发生器）与 `VCC/VEE`；探针 = 端口 + 所有测试点 |
+| `designer.simulate` | `sim.rs` | 【仿真】：复用 breadspice 的 **rawfile 通道**（`ngspice -b -r`），支持 `tran` / `ac`；**激励参数来自 IN 元件**（弹窗只管时间/频率范围）；探针 = **IN + OUT + 所有测试点**（未放测试点的节点不探） |
 | `designer.stop` | `sim.rs` | 取消正在跑的仿真（pid + kill，返回部分结果） |
 | `designer.fft` | `fft.rs`（取自 breadspice） | 示波器的频谱按钮：重采样 → Hann → FFT → 对数频率 + dB |
 `designer.codegen` | `codegen.rs` | 【生成代码】：调 `rustomp-import --mna` 把当前网表生成 Rust 电路（M-B 闭环），返回源码与未知量个数 |

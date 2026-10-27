@@ -1,0 +1,190 @@
+{
+  "version": 1,
+  "name": "共射前级（NPN）",
+  "parts": [
+    {
+      "id": "p1",
+      "ref": "Q1",
+      "symbol": "npn",
+      "at": {
+        "x": 0,
+        "y": 0
+      },
+      "rot": 0,
+      "mirror": "none",
+      "model": "BC549C"
+    },
+    {
+      "id": "p2",
+      "ref": "R1",
+      "symbol": "resistor",
+      "at": {
+        "x": 2.5,
+        "y": -25
+      },
+      "rot": 90,
+      "mirror": "none",
+      "value": "10k"
+    },
+    {
+      "id": "p3",
+      "ref": "R2",
+      "symbol": "resistor",
+      "at": {
+        "x": 2.5,
+        "y": 25
+      },
+      "rot": 90,
+      "mirror": "none",
+      "value": "1k"
+    },
+    {
+      "id": "p4",
+      "ref": "R3",
+      "symbol": "resistor",
+      "at": {
+        "x": -12.5,
+        "y": -25
+      },
+      "rot": 90,
+      "mirror": "none",
+      "value": "470k"
+    },
+    {
+      "id": "p5",
+      "ref": "C1",
+      "symbol": "capacitor",
+      "at": {
+        "x": -37.5,
+        "y": 0
+      },
+      "rot": 0,
+      "mirror": "none",
+      "value": "47n"
+    },
+    {
+      "id": "p6",
+      "ref": "C2",
+      "symbol": "capacitor",
+      "at": {
+        "x": 17.5,
+        "y": -12.5
+      },
+      "rot": 0,
+      "mirror": "none",
+      "value": "1u"
+    },
+    {
+      "id": "p7",
+      "ref": "IN1",
+      "symbol": "node-in",
+      "at": {
+        "x": -62.5,
+        "y": 0
+      },
+      "rot": 0,
+      "mirror": "none"
+    },
+    {
+      "id": "p8",
+      "ref": "OUT1",
+      "symbol": "node-out",
+      "at": {
+        "x": 42.5,
+        "y": -12.5
+      },
+      "rot": 0,
+      "mirror": "none"
+    },
+    {
+      "id": "p9",
+      "ref": "VCC1",
+      "symbol": "vcc",
+      "at": {
+        "x": 2.5,
+        "y": -50
+      },
+      "rot": 0,
+      "mirror": "none"
+    },
+    {
+      "id": "p10",
+      "ref": "GND1",
+      "symbol": "earth",
+      "at": {
+        "x": 2.5,
+        "y": 50
+      },
+      "rot": 0,
+      "mirror": "none"
+    }
+  ],
+  "wires": [
+    {
+      "id": "w11",
+      "points": [
+        {
+          "x": -75.0,
+          "y": 0.0
+        },
+        {
+          "x": -50.0,
+          "y": 0.0
+        }
+      ]
+    },
+    {
+      "id": "w12",
+      "points": [
+        {
+          "x": -25.0,
+          "y": 0.0
+        },
+        {
+          "x": -12.5,
+          "y": 0.0
+        }
+      ]
+    },
+    {
+      "id": "w13",
+      "points": [
+        {
+          "x": -12.5,
+          "y": 0.0
+        },
+        {
+          "x": -12.5,
+          "y": -12.5
+        }
+      ]
+    },
+    {
+      "id": "w14",
+      "points": [
+        {
+          "x": -12.5,
+          "y": -37.5
+        },
+        {
+          "x": 2.5,
+          "y": -37.5
+        }
+      ]
+    },
+    {
+      "id": "w15",
+      "points": [
+        {
+          "x": 2.5,
+          "y": -12.5
+        },
+        {
+          "x": 5.0,
+          "y": -12.5
+        }
+      ]
+    }
+  ],
+  "nextId": 16
+}

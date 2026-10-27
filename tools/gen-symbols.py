@@ -21,6 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 KIT = ROOT / "assets/gb4728-symbols-kit"
 SYMBOLS_DIR = KIT / "symbols"
+EXT_DIR = ROOT / "assets/gb4728-ext/symbols"   # 补的符号（docs/04 §5：不改原 kit）
 MAKE_SYMBOLS = KIT / "build/make-symbols.py"
 OVERRIDES = ROOT / "symbols/overrides.json"
 OUT = ROOT / "symbols/symbols.json"
@@ -103,7 +104,9 @@ def main() -> int:
     symbols: dict[str, dict] = {}
     problems: list[str] = []
 
-    for svg in sorted(SYMBOLS_DIR.glob("*.svg")):
+    svg_files = sorted(SYMBOLS_DIR.glob("*.svg")) + sorted(EXT_DIR.glob("*.svg"))
+    for svg in svg_files:
+        is_ext = svg.parent == EXT_DIR
         num, slug = svg.stem.split("-", 1)
         if slug not in overrides:
             problems.append(f"{svg.name}: symbols/overrides.json 里没有 `{slug}` 这一项")
@@ -116,11 +119,11 @@ def main() -> int:
         # 画布坐标 → 局部坐标
         local = [(round(cx - ox, 4), round(cy - oy, 4)) for cx, cy in meta["pins_canvas"]]
 
-        # ① 与 kit 的 PINS 表交叉校验（同一顺序）
-        kit = pins_table.get(num)
-        if kit is None:
+        # ① 与 kit 的 PINS 表交叉校验（同一顺序）；扩展符号不在 kit 里，跳过
+        kit = None if is_ext else pins_table.get(num)
+        if kit is None and not is_ext:
             problems.append(f"{slug}: make-symbols.py 的 PINS 表里没有 {num}")
-        else:
+        elif kit is not None:
             want = [(round(x, 4), round(y, 4)) for x, y in kit]
             if want != local:
                 problems.append(
@@ -155,7 +158,11 @@ def main() -> int:
             problems.append(f"{slug}: overrides 里有 {len(ov['pins'])} 个引脚，素材里有 {len(local)} 个")
 
         entry = {
-            "file": f"assets/gb4728-symbols-kit/symbols/{svg.name}",
+            "file": (
+                f"assets/gb4728-ext/symbols/{svg.name}"
+                if is_ext
+                else f"assets/gb4728-symbols-kit/symbols/{svg.name}"
+            ),
             "name": meta["name"],
             "standard": meta["standard"],
             "canvas": meta["canvas"],

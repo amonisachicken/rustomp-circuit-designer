@@ -1,0 +1,29 @@
+* rustomp 电路设计器 —— 仿真用器件模型（**仅仿真**，不进交付的 .cir）
+*
+* 来源与差异：
+*   - 13 个型号：取自 rustomp 的 devices/devices.lib（同项目，GPL-3.0-or-later）
+*   - 2N7000：rustomp 里是 N2N7000 子电路；这里按网表约定（`M<name> d g s s 2N7000`）
+*     改成 LEVEL=1 的 .model 近似，只用于图纸级仿真
+*   - OP07A：本项目写的最小宏模型（单极点 + 有限开环增益），与 rustomp 的 OpAmp 器件同族
+*
+.model 1N4148 D(Is=2.52n Rs=.568 N=1.752 Cjo=4p M=.4 tt=20n)
+.model 1N34A D(is=2.6u rs=6.5 n=1.6 cjo=0.8p eg=0.67 bv=25 ibv=0.003)
+.model 1N4007 D(IS=7.02767n RS=0.0341512 N=1.80803 EG=1.05743 XTI=5
+.model 1N5817 D(Is=31.7u Rs=.051 N=1.373 Cjo=190p M=.3 Eg=.69 Xti=2)
+.model LedRed D(IS=93.2P RS=42M N=3.73 BV=4 IBV=10U CJO=2.97P VJ=.75 M=.333 TT=4.32U)
+.model LedGreen D(IS=93.2P RS=42M N=4.61 BV=4 IBV=10U CJO=2.97P VJ=.75 M=.333 TT=4.32U)
+.model LedBLUE D(IS=93.2P RS=42M N=7.47 BV=5 IBV=10U CJO=2.97P VJ=.75 M=.333 TT=4.32U)
+.model BC549C NPN(Is=7.049f Xti=3 Eg=1.11 Vaf=23.89 Bf=493.2 Ise=99.2f Ne=1.829 Ikf=.1542 Nk=.6339 Xtb=1.5 Br=2.886 Isc=7.371p Nc=1.508 Ikr=5.426 Rc=1.175 Cjc=5.5p Mjc=.3132 Vjc=.4924 Fc=.5 Cje=11.5p Mje=.6558 Vje=.5 Tr=10n Tf=420.3p Itf=1.374 Xtf=39.42 Vtf=10)
+.model BC559C PNP(Is=1.02f Xti=3 Eg=1.11 Vaf=34.62 Bf=401.6 Ise=38.26p Ne=5.635 Ikf=74.73m Nk=.512 Xtb=1.5 Br=9.011 Isc=1.517f Nc=1.831 Ikr=.1469 Rc=1.151 Cjc=9.81p Mjc=.332 Vjc=.4865 Fc=.5 Cje=30p Mje=.3333 Vje=.5 Tr=10n Tf=524p Itf=.9847 Xtf=17.71 Vtf=10)
+.model AC127 NPN(is=5u isc=5u ise=600n ikf=300m itf=300m nc=2 ne=2 bf=160 br=5 rb=100 rc=1.5 vaf=50 var=50 cjc=200p cje=60p tr=3u tf=600n fc=0.5 eg=0.72 vjc=0.4 vje=0.4 vtf=4 mjc=0.333 mje=0.333 xtb=1.5 xtf=6 xti=3)
+.model AC128 PNP(is=5u isc=1u ise=200n ikf=3 itf=1 nc=2 ne=1.5 bf=90 br=5 rb=7 rc=0.2 re=0.1 vaf=40 var=40 cjc=250p cje=80p tr=5u tf=1u fc=0.5 eg=0.72 vjc=0.4 vje=0.4 vtf=4 mjc=0.333 mje=0.333 xtb=1.5 xtf=6 xti=3)
+.model J201 NJF(Beta=1.621m Betatce=-500m Rd=1 Rs=1 Lambda=2.236m Vto=-600m Vtotc=-2.5m Is=114.5f Xti=3 Cgd=4.667p M=227.1m Pb=500m Fc=500m Cgs=2.992p Kf=0.6042f Af=1)
+.model 2N7000 NMOS(LEVEL=1 VTO=1.6 KP=0.035 LAMBDA=0.02 IS=0
+
+* 运放最小宏模型：A0=1e6、单极点（GBW≈5.3 MHz）、输出电阻 75 Ω
+.subckt OP07A INP INN VP VN OUT
+E1   OUTX VN  INP INN  1e6
+R1   OUTX VN  1k
+C1   OUTX VN  30u
+RO   OUTX OUT 75
+.ends OP07A

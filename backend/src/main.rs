@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{path::PathBuf, sync::Arc};
 
+mod codegen;
 mod netlist;
 mod sim;
 use tower_http::cors::CorsLayer;
@@ -85,6 +86,30 @@ async fn rpc(State(app): State<Arc<App>>, Json(req): Json<RpcRequest>) -> Json<R
                 Err(e) => return err(format!("仿真参数解析失败：{e}")),
             };
             match sim::run(&req, &table) {
+                Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+                Err(e) => err(e),
+            }
+        }
+        "designer.codegen" => {
+            let path = app.root.join("symbols/symbols.json");
+            let table: netlist::SymbolTable = match std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|t| serde_json::from_str(&t).ok())
+            {
+                Some(t) => t,
+                None => return err(format!("读不到 {}", path.display())),
+            };
+            let doc: netlist::Document = match serde_json::from_value(req.params) {
+                Ok(d) => d,
+                Err(e) => return err(format!("Document 解析失败：{e}")),
+            };
+            let g = netlist::generate(&doc, &table);
+            let errors: Vec<&netlist::Lint> =
+                g.lints.iter().filter(|l| l.level == netlist::Level::Error).collect();
+            if !errors.is_empty() {
+                return err(format!("图纸有 {} 个 error，先修好：{}", errors.len(), errors[0].msg));
+            }
+            match codegen::generate(&app.root, &g.cir) {
                 Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
                 Err(e) => err(e),
             }

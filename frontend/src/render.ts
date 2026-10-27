@@ -17,6 +17,8 @@ export interface View {
 }
 
 export interface RenderOpts {
+  /** 悬空引脚的世界坐标（画红圈，来自后端 lint） */
+  dangling?: { at: Vec; label: string }[];
   doc: Doc;
   table: SymbolTable;
   art: (file: string) => { viewBox: string; inner: string } | undefined;
@@ -112,6 +114,23 @@ export function render(root: SVGSVGElement, o: RenderOpts): void {
     partG.append(renderPart(part, table, art, view, part.id === o.selectedId));
   }
   root.append(partG);
+
+  // ---- 悬空引脚：红圈 ----
+  if (o.dangling?.length) {
+    const g = el("g");
+    g.setAttribute("class", "dangling");
+    for (const d of o.dangling) {
+      const c = el("circle");
+      const p = mmToScreen(d.at, view);
+      c.setAttribute("cx", `${p.x}`);
+      c.setAttribute("cy", `${p.y}`);
+      c.setAttribute("r", `${Math.max(4, view.scale * 1.4)}`);
+      c.append(el("title"));
+      (c.firstChild as SVGElement).textContent = d.label;
+      g.append(c);
+    }
+    root.append(g);
+  }
 
   // ---- 手持的元件（半透明预览）----
   if (o.ghost) {

@@ -17,6 +17,8 @@ export interface NetlistResult {
   lints: Lint[];
   ports: { in: string | null; out: string | null };
   nets: { name: string; pins: string[] }[];
+  /** 悬空引脚（画布上标红圈） */
+  dangling: { ref: string; pin: string; at: { x: number; y: number } }[];
 }
 
 async function rpc<T>(method: string, params: unknown): Promise<T> {
@@ -30,12 +32,21 @@ async function rpc<T>(method: string, params: unknown): Promise<T> {
   return body.result as T;
 }
 
+export interface CodegenResult {
+  code: string;
+  unknowns: number | null;
+  ports: string[];
+}
+
 export interface SimResult {
   cir: string;
   t: number[];
   vin: number[];
   vout: number[];
   ports: { in: string | null; out: string | null };
+  /** 输出 THD（前 9 次谐波，相对基波）；null = 算不出来 */
+  thd: number | null;
+  thd_in: number | null;
   log: string;
 }
 
@@ -45,4 +56,6 @@ export const backend = {
   /** 仿真：后端拼上源与 .tran 跑 ngspice，返回波形（不影响交付的 .cir） */
   simulate: (doc: unknown, opts: { amp: number; freq: number; stop_ms: number }) =>
     rpc<SimResult>("designer.simulate", { doc, ...opts }),
+  /** 调 rustomp-import 把网表生成 Rust 电路（需要 RUSTOMP_ROOT 或同级 rustomp） */
+  codegen: (doc: unknown) => rpc<CodegenResult>("designer.codegen", doc),
 };

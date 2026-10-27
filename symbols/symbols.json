@@ -44,6 +44,49 @@
       },
       "standard": "GB/T 4728.4"
     },
+    "dc-jack": {
+      "canvas": {
+        "h": 20.0,
+        "w": 25.0
+      },
+      "category": "connector",
+      "file": "assets/gb4728-ext/symbols/18-dc-jack.svg",
+      "models": [],
+      "name": {
+        "en": "DC Jack",
+        "zh": "DC 电源座"
+      },
+      "origin": {
+        "x": 12.5,
+        "y": 10.0
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -10.0,
+            "y": -5.0
+          },
+          "dir": "left",
+          "id": "+"
+        },
+        {
+          "at": {
+            "x": -10.0,
+            "y": 5.0
+          },
+          "dir": "left",
+          "id": "-"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "+",
+          "-"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.3（示意画法）"
+    },
     "diode": {
       "canvas": {
         "h": 15.0,
@@ -126,6 +169,49 @@
         "prefix": ""
       },
       "standard": "GB/T 4728.2"
+    },
+    "jack": {
+      "canvas": {
+        "h": 25.0,
+        "w": 25.0
+      },
+      "category": "connector",
+      "file": "assets/gb4728-ext/symbols/17-jack.svg",
+      "models": [],
+      "name": {
+        "en": "输出通用）",
+        "zh": "插孔（输入"
+      },
+      "origin": {
+        "x": 12.5,
+        "y": 12.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -10.0,
+            "y": -2.5
+          },
+          "dir": "left",
+          "id": "1"
+        },
+        {
+          "at": {
+            "x": -10.0,
+            "y": 7.5
+          },
+          "dir": "left",
+          "id": "2"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "1",
+          "2"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.3（示意画法）"
     },
     "jfet-n": {
       "canvas": {
@@ -281,6 +367,40 @@
         "prefix": "M"
       },
       "standard": "GB/T 4728.5"
+    },
+    "nc": {
+      "canvas": {
+        "h": 15.0,
+        "w": 15.0
+      },
+      "category": "nc",
+      "file": "assets/gb4728-ext/symbols/20-nc.svg",
+      "models": [],
+      "name": {
+        "en": "No Connect",
+        "zh": "空脚"
+      },
+      "origin": {
+        "x": 7.5,
+        "y": 7.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -5.0,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "NC"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "NC"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.2（示意画法）"
     },
     "node-in": {
       "canvas": {
@@ -628,6 +748,40 @@
         "prefix": "R"
       },
       "standard": "GB/T 4728.4"
+    },
+    "test-point": {
+      "canvas": {
+        "h": 15.0,
+        "w": 15.0
+      },
+      "category": "test-point",
+      "file": "assets/gb4728-ext/symbols/19-test-point.svg",
+      "models": [],
+      "name": {
+        "en": "Test Point",
+        "zh": "测试点"
+      },
+      "origin": {
+        "x": 7.5,
+        "y": 7.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -5.0,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "TP"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "TP"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.2（示意画法）"
     },
     "vcc": {
       "canvas": {

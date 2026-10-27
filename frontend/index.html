@@ -17,6 +17,7 @@
       <button id="btnSim" title="跑 ngspice 瞬态，看波形">仿真</button>
       <button id="btnPreview" title="预览 = 生成可保存的截图">预览</button>
       <button id="btnNetlist" title="生成网表并下载 .cir">生成网表</button>
+      <button id="btnCodegen" title="调 rustomp-import 生成 Rust 电路并下载">生成代码</button>
       <span class="step"></span>
       <span id="mode" class="mode">查看</span>
     </header>
@@ -60,6 +61,7 @@
         <button id="simRun" class="primary">运行</button>
         <span id="simStatus" class="muted"></span>
       </p>
+      <p id="simSemantics" class="muted"></p>
       <svg id="simPlot"></svg>
       <details><summary>ngspice 日志</summary><pre id="simLog"></pre></details>
       <p style="text-align: right"><button id="simClose">关闭</button></p>

@@ -163,10 +163,17 @@ cargo test --workspace
 | RPC | 后端 | 作用 |
 |---|---|---|
 | `designer.netlist` | `netlist.rs` | 前端每次改图防抖 300 ms 调一次；状态栏显示 error/warn，「网表 ▾」展开全文，「生成网表」在有 error 时拒绝下载 |
-| `designer.simulate` | `sim.rs` | 【仿真】按钮：临时拼上源与 `.tran`（**不进交付的 `.cir`**），跑 ngspice，`wrdata` 取波形画图 |
+| `designer.simulate` | `sim.rs` | 【仿真】按钮：临时拼上源/电源轨/器件模型与 `.tran`（**都不进交付的 `.cir`**），跑 ngspice，`wrdata` 取波形；顺带算 **THD**（前 9 次谐波投影法） |
+| `designer.codegen` | `codegen.rs` | 【生成代码】：调 `rustomp-import --mna` 把当前网表生成 Rust 电路（M-B 闭环），返回源码与未知量个数 |
 
-仿真的两个约定：① 图纸上没有 `voltage-source` 时，自动在 `in` 网络挂 `SIN(0 amp freq 0 0 0)`；
-② 默认 10 ms 窗口（3 ms 只能看到瞬态，低通/大时间常数要更长）。
+仿真的四个约定：
+
+1. 图纸上没有 `voltage-source` 时，自动在 `in` 网络挂 `SIN(0 amp freq 0 0 0)`；
+2. `VCC` / `VEE` 是**网络标签**，仿真时自动补 `DC 9` / `DC -9` 的电源（否则放大级没供电，
+   典型症状是"输出幅度与输入一样大"）；
+3. 器件模型从 `assets/models.lib` 内联（14 型号取自 rustomp 的 devices；`2N7000` 是 LEVEL=1 近似；
+   `OP07A` 是本项目写的最小宏模型）——**只用于仿真，不进交付网表**；
+4. 默认 10 ms 窗口（3 ms 只能看到瞬态）。
 `designer.codegen`（第 3 步）留给 D1。
 
 ---

@@ -44,6 +44,7 @@ body {
 .parts text.ref { font-size: 3.2px; fill: #334155; }
 .parts text.value { font-size: 2.8px; fill: #64748b; }
 .ghost { opacity: .45; }
+.dangling circle { fill: rgba(220, 38, 38, .18); stroke: #dc2626; stroke-width: 1.2; stroke-dasharray: 3 2; }
 .ghost.bad { filter: saturate(0.2); }
 
 #props {

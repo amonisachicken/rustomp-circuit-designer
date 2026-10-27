@@ -72,9 +72,12 @@ function makeHooks(tableRef: SymbolTable): EditorHooks {
 let netlist: NetlistResult | null = null;
 let netlistError: string | null = null;
 let refreshTimer: number | undefined;
+/** 防止"刷新网表 → 重画 → 又触发刷新"的循环 */
+let suppressSchedule = false;
 
 /** 文档变了就防抖刷新网表预览（状态栏/网表面板用） */
 function scheduleNetlist(): void {
+  if (suppressSchedule) return;
   window.clearTimeout(refreshTimer);
   refreshTimer = window.setTimeout(() => void refreshNetlist(), 300);
 }
@@ -88,6 +91,9 @@ async function refreshNetlist(): Promise<void> {
     netlistError = e instanceof Error ? e.message : String(e);
   }
   renderNetlist();
+  suppressSchedule = true;
+  repaint();
+  suppressSchedule = false;
 }
 
 function renderNetlist(): void {
@@ -147,6 +153,10 @@ function repaint(): void {
     view,
     selectedId,
     ghost: ghostOf(),
+    dangling: (netlist?.dangling ?? []).map((d) => ({
+      at: d.at,
+      label: `${d.ref}.${d.pin} 悬空`,
+    })),
     wirePreview: mode.kind === "wire" && mode.from ? { from: mode.from, to: orthoPoint(mode.from, hoverMm) } : null,
   });
   $("#mode").textContent = modeLabel(mode);
@@ -494,14 +504,38 @@ async function runSim(): Promise<void> {
       labelIn: r.ports.in ?? "in",
       labelOut: r.ports.out ?? "out",
     });
+    // 说清"INPUT/OUTPUT 封装"的语义：源注入 in 网、探针看 out 网（仅仿真，不进交付网表）
+    const hasSrc = doc.parts.some((p) => p.symbol === "voltage-source");
+    $("#simSemantics").textContent =
+      `源：${hasSrc ? "图纸自带的 voltage-source" : `自动注入 SIN(0 ${amp} V, ${freq} Hz) → ${r.ports.in ?? "?"}`}` +
+      ` · 探针：v(${r.ports.in ?? "?"}) / v(${r.ports.out ?? "?"})` +
+      `（只用于仿真，不写进交付的 .cir）`;
     const maxOut = r.vout.length ? Math.max(...r.vout.map(Math.abs)) : 0;
-    status.textContent = `${r.t.length} 点 · ${stop} ms · ${freq} Hz · |out|max = ${maxOut.toFixed(3)} V`;
+    const thd = r.thd === null ? "—" : `${(r.thd * 100).toFixed(2)}%`;
+    status.textContent =
+      `${r.t.length} 点 · ${stop} ms · ${freq} Hz · |out|max = ${maxOut.toFixed(3)} V · THD = ${thd}`;
     $("#simLog").textContent = r.log || "（无输出）";
   } catch (e) {
     status.textContent = `✗ ${e instanceof Error ? e.message : String(e)}`;
     $("#simLog").textContent = String(e);
   }
 }
+
+$("#btnCodegen").addEventListener("click", async () => {
+  $("#hint").textContent = "生成代码中…";
+  try {
+    const r = await backend.codegen(doc);
+    const url = URL.createObjectURL(new Blob([r.code], { type: "text/plain" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${doc.name}.circuit.rs`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    $("#hint").textContent = `已生成 Rust 电路（未知量 ${r.unknowns ?? "?"}，节点 ${r.ports.join("/")}）`;
+  } catch (e) {
+    $("#hint").textContent = `生成代码失败：${e instanceof Error ? e.message : String(e)}`;
+  }
+});
 
 $("#btnNetlistToggle").addEventListener("click", () => {
   const pane = $<HTMLElement>("#netlistPane");
@@ -565,7 +599,8 @@ async function previewPng(): Promise<void> {
 /** `?load=<name>` 载入 frontend/public/examples/<name>.design.json（示例电路） */
 async function loadExample(name: string): Promise<boolean> {
   try {
-    const res = await fetch(`examples/${name}.design.json`);
+    // no-store：示例会被改（模板重生成），别让浏览器缓存住旧版本
+    const res = await fetch(`examples/${name}.design.json`, { cache: "no-store" });
     if (!res.ok) throw new Error(String(res.status));
     const text = await res.text();
     Object.assign(doc, JSON.parse(text) as Doc);

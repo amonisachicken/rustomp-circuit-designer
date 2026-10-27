@@ -38,18 +38,46 @@ pub struct SimResult {
     pub vout: Vec<f64>,
     /// 端口名（波形标签）
     pub ports: netlist::Ports,
+    /// 输出波形的 THD（前 9 次谐波，相对基波；算不出来就是 None）
+    pub thd: Option<f64>,
+    /// 输入波形的 THD（用来判断"源本身不干净"的情况）
+    pub thd_in: Option<f64>,
     /// ngspice 的报错/警告尾巴（成功时也可能有）
     pub log: String,
 }
 
 const MAX_POINTS: usize = 2000;
 
+/// 仿真用的器件模型库（`assets/models.lib`）。找不到就返回空串 ——
+/// 纯无源电路（电阻/电容/电源）不需要模型，仍然能仿真。
+fn model_lib(root: &Path) -> String {
+    let env = std::env::var("CD_MODELS").ok().map(std::path::PathBuf::from);
+    let path = env.unwrap_or_else(|| root.join("assets/models.lib"));
+    match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(_) => {
+            eprintln!("（提示）没有找到器件模型库 {}：二极管/三极管/运放会仿真失败", path.display());
+            String::new()
+        }
+    }
+}
+
 fn ngspice_bin() -> String {
     std::env::var("NGSPICE").unwrap_or_else(|_| "ngspice".to_string())
 }
 
 /// 把交付网表改造成"可仿真的网表"：去掉 `.end`，自动补源，加 `.control`。
-pub fn with_analysis(base_cir: &str, ports: &netlist::Ports, has_source: bool, amp: f64, freq: f64, stop_s: f64, wr: &Path) -> String {
+#[allow(clippy::too_many_arguments)]
+pub fn with_analysis(
+    base_cir: &str,
+    ports: &netlist::Ports,
+    has_source: bool,
+    amp: f64,
+    freq: f64,
+    stop_s: f64,
+    wr: &Path,
+    models: &str,
+) -> String {
     let mut body: Vec<&str> = base_cir
         .lines()
         .filter(|l| !l.trim_start().eq_ignore_ascii_case(".end"))
@@ -61,6 +89,21 @@ pub fn with_analysis(base_cir: &str, ports: &netlist::Ports, has_source: bool, a
 
     let mut out = String::new();
     out.push_str("* ==== 以下为仿真附加（不写进交付的 .cir）====\n");
+    // VCC / VEE 在图纸里是**网络标签**（电源端符号），仿真必须给它一个真实源，
+    // 否则这两条轨道悬空、放大级没有供电（典型症状：输出幅度与输入一样大）。
+    for (net, volt) in [("VCC", 9.0), ("VEE", -9.0)] {
+        let used = base_cir.lines().any(|l| {
+            let t: Vec<&str> = l.split_whitespace().collect();
+            t.len() > 2 && t.iter().skip(1).any(|n| *n == net)
+        });
+        let driven = base_cir.lines().any(|l| {
+            let t: Vec<&str> = l.split_whitespace().collect();
+            t.len() > 2 && (t[0].starts_with('V') || t[0].starts_with('v')) && t[1] == net
+        });
+        if used && !driven {
+            out.push_str(&format!("VSUP_{net} {net} 0 DC {volt}\n"));
+        }
+    }
     if !has_source {
         if let Some(nin) = &ports.r#in {
             out.push_str(&format!("VSIM {nin} 0 DC 0 SIN(0 {amp} {freq} 0 0 0)\n"));
@@ -68,6 +111,13 @@ pub fn with_analysis(base_cir: &str, ports: &netlist::Ports, has_source: bool, a
     }
     out.push_str(&body.join("\n"));
     out.push('\n');
+
+    // 器件模型（.model / .subckt）：ngspice 需要，交付网表不需要
+    if !models.trim().is_empty() {
+        out.push_str("* ---- 器件模型（仅仿真）----\n");
+        out.push_str(models.trim());
+        out.push('\n');
+    }
 
     let step = (stop_s / 3000.0).max(1e-9);
     let probes: Vec<String> = [ports.r#in.as_ref(), ports.out.as_ref()]
@@ -138,7 +188,11 @@ pub fn run(req: &SimRequest, table: &SymbolTable) -> Result<SimResult, String> {
     let dat_path = dir.join("sim.dat");
     let _ = std::fs::remove_file(&dat_path);
 
-    let cir = with_analysis(&g.cir, &g.ports, has_source, amp, freq, stop_s, &dat_path);
+    let root = std::env::var("CD_ROOT").map(std::path::PathBuf::from).unwrap_or_else(|_| {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf()
+    });
+    let models = model_lib(&root);
+    let cir = with_analysis(&g.cir, &g.ports, has_source, amp, freq, stop_s, &dat_path, &models);
     std::fs::write(&cir_path, &cir).map_err(|e| format!("写临时网表失败：{e}"))?;
 
     let output = Command::new(ngspice_bin())
@@ -175,8 +229,21 @@ pub fn run(req: &SimRequest, table: &SymbolTable) -> Result<SimResult, String> {
     let vin_t = thin(&vin).iter().map(|p| p.1).collect();
     let vout_t = thin(&vout).iter().map(|p| p.1).collect();
 
+    // THD 用**未降采样**的原始数据算（降采样会削掉高次谐波）
+    let thd_out = thd(&vout.iter().map(|p| p.0).collect::<Vec<_>>(), &vout.iter().map(|p| p.1).collect::<Vec<_>>(), freq);
+    let thd_in = thd(&vin.iter().map(|p| p.0).collect::<Vec<_>>(), &vin.iter().map(|p| p.1).collect::<Vec<_>>(), freq);
+
     let _ = std::fs::remove_dir_all(&dir);
-    Ok(SimResult { cir, t, vin: vin_t, vout: vout_t, ports: g.ports, log: tail_of(&log, 8) })
+    Ok(SimResult {
+        cir,
+        t,
+        vin: vin_t,
+        vout: vout_t,
+        ports: g.ports,
+        thd: thd_out,
+        thd_in,
+        log: tail_of(&log, 8),
+    })
 }
 
 fn tail_of(s: &str, n: usize) -> String {
@@ -222,7 +289,7 @@ mod tests {
         assert!(!g.cir.contains("SIN("), "交付网表不该有源：\n{}", g.cir);
         assert!(!g.cir.contains(".tran"), "交付网表不该有 .tran：\n{}", g.cir);
 
-        let sim = with_analysis(&g.cir, &g.ports, false, 0.2, 1000.0, 0.003, Path::new("/tmp/x.dat"));
+        let sim = with_analysis(&g.cir, &g.ports, false, 0.2, 1000.0, 0.003, Path::new("/tmp/x.dat"), "");
         assert!(sim.contains("VSIM IN 0 DC 0 SIN(0 0.2 1000 0 0 0)"), "{sim}");
         assert!(sim.contains(".control"), "{sim}");
         assert!(sim.contains("wrdata /tmp/x.dat v(IN) v(OUT)"), "{sim}");
@@ -261,5 +328,76 @@ mod tests {
         );
         let last_t = r.t.last().copied().unwrap_or(0.0);
         assert!((last_t - 20.0).abs() < 0.5, "时长应≈20 ms：{last_t}");
+    }
+}
+
+// ---------------------------------------------------------------- THD（不引 FFT 依赖）
+
+/// 用"最小二乘投影 + Hann 窗"算前 9 次谐波，返回 THD（相对基波）。
+///
+/// 为什么不用 FFT：波形点数是任意的（wrdata 变步长、我们又降采样过），
+/// 投影法对非整数周期更稳，而且不需要引依赖。
+pub fn thd(t: &[f64], v: &[f64], f0: f64) -> Option<f64> {
+    if t.len() < 32 || t.len() != v.len() || f0 <= 0.0 {
+        return None;
+    }
+    // 取最后 8 个周期（稳态段）
+    let period = 1.0 / f0;
+    let t_end = *t.last()?;
+    let t_start = (t_end - 8.0 * period).max(t[0]);
+    let idx: Vec<usize> = (0..t.len()).filter(|i| t[*i] >= t_start && t[*i] <= t_end).collect();
+    if idx.len() < 32 {
+        return None;
+    }
+    let n = idx.len() as f64;
+    let amp = |k: f64| -> f64 {
+        let (mut re, mut im) = (0.0, 0.0);
+        for (j, i) in idx.iter().enumerate() {
+            let w = 0.5 - 0.5 * (2.0 * std::f64::consts::PI * j as f64 / (n - 1.0)).cos(); // Hann
+            let ph = 2.0 * std::f64::consts::PI * k * f0 * t[*i];
+            re += w * v[*i] * ph.cos();
+            im += w * v[*i] * ph.sin();
+        }
+        (re * re + im * im).sqrt() * 2.0 / n
+    };
+    let a1 = amp(1.0);
+    if a1 <= 1e-9 {
+        return None;
+    }
+    let mut acc = 0.0;
+    for k in 2..=9 {
+        let a = amp(k as f64);
+        acc += a * a;
+    }
+    Some(acc.sqrt() / a1)
+}
+
+#[cfg(test)]
+mod thd_tests {
+    use super::thd;
+
+    #[test]
+    fn 纯正弦的_thd_接近零() {
+        let f = 1000.0;
+        let dt = 1.0 / 200_000.0;
+        let t: Vec<f64> = (0..4000).map(|i| i as f64 * dt).collect();
+        let v: Vec<f64> = t.iter().map(|x| 0.2 * (2.0 * std::f64::consts::PI * f * x).sin()).collect();
+        let thd = thd(&t, &v, f).expect("应该算得出来");
+        assert!(thd < 0.01, "纯正弦 THD 应≈0：{thd}");
+    }
+
+    #[test]
+    fn 削顶方波的_thd_明显升高() {
+        let f = 1000.0;
+        let dt = 1.0 / 200_000.0;
+        let t: Vec<f64> = (0..4000).map(|i| i as f64 * dt).collect();
+        let v: Vec<f64> = t
+            .iter()
+            .map(|x| 0.2 * (2.0 * std::f64::consts::PI * f * x).sin())
+            .map(|s| s.clamp(-0.1, 0.1)) // 硬削波
+            .collect();
+        let thd = thd(&t, &v, f).expect("应该算得出来");
+        // 只算到 9 次谐波，所以硬削波也就 0.23 左右（真正的方波还有更高次）
+        assert!(thd > 0.2, "硬削波的 THD 应明显：{thd}");
     }
 }

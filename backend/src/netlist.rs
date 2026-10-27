@@ -136,12 +136,23 @@ pub struct Generated {
     pub ports: Ports,
     /// 每个网络的名字与成员引脚（调试/状态栏用）
     pub nets: Vec<NetInfo>,
+    /// 悬空引脚（画布上标红圈；`nc` 符号上的引脚不算）
+    pub dangling: Vec<Dangling>,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Ports {
     pub r#in: Option<String>,
     pub out: Option<String>,
+}
+
+/// 悬空引脚（只连了自己的网络）—— 前端在画布上标红圈
+#[derive(Debug, Clone, Serialize)]
+pub struct Dangling {
+    #[serde(rename = "ref")]
+    pub r#ref: String,
+    pub pin: String,
+    pub at: Pt,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -269,6 +280,7 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
         at: Pt,
     }
     let mut pins: Vec<PinWorld> = Vec::new();
+    let mut nc_pins: Vec<(String, String)> = Vec::new(); // (part.id, pin.id) —— 故意不接
     let mut explicit: HashMap<(i64, i64), String> = HashMap::new();
     let mut ports = Ports::default();
 
@@ -293,6 +305,9 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
             let at = to_world(pin.at, part);
             dsu.find(key(at)); // 落点入表
             pins.push(PinWorld { part, pin_id: &pin.id, at });
+            if sym.category == "nc" {
+                nc_pins.push((part.id.clone(), pin.id.clone()));
+            }
             for (a, b) in &segs {
                 if on_segment(at, *a, *b) {
                     dsu.union(key(at), key(*a));
@@ -348,10 +363,21 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
     }
 
     // 4) lint：悬空/单点/无地/无端口
+    let mut dangling: Vec<Dangling> = Vec::new();
     for (root, members) in &nets {
         let name = net_name.get(root).cloned().unwrap_or_default();
         if members.len() == 1 {
             let pw = members[0];
+            // `nc` 符号的引脚是"故意不接"，不算悬空
+            let intentional = nc_pins.iter().any(|(pid, pin)| *pid == pw.part.id && pin == pw.pin_id);
+            if intentional {
+                continue;
+            }
+            dangling.push(Dangling {
+                r#ref: pw.part.r#ref.clone(),
+                pin: pw.pin_id.to_string(),
+                at: pw.at,
+            });
             lints.push(warn(
                 "dangling-pin",
                 format!("{} 的引脚 {} 悬空（网络 {name} 只连了自己）", pw.part.r#ref, pw.pin_id),
@@ -425,7 +451,14 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
         } else {
             String::new()
         };
-        cir.push_str(&format!("{} {}{}\n", p.r#ref, nodes.join(" "), tail));
+        // SPICE 里子电路实例的名字必须以 X 开头（ngspice 靠首字母区分器件类型）。
+        // 参考编号是 U1，所以发 `XU1 …`；电阻/电容/管子仍用 ref 本身。
+        let elem = if sym.spice.prefix == "X" && !p.r#ref.starts_with('X') {
+            format!("X{}", p.r#ref)
+        } else {
+            p.r#ref.clone()
+        };
+        cir.push_str(&format!("{} {}{}\n", elem, nodes.join(" "), tail));
     }
     cir.push_str(".end\n");
 
@@ -440,7 +473,7 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
         })
         .collect();
 
-    Generated { cir, lints, ports, nets: net_infos }
+    Generated { cir, lints, ports, nets: net_infos, dangling }
 }
 
 fn dsu_root(dsu: &Dsu, k: (i64, i64)) -> (i64, i64) {

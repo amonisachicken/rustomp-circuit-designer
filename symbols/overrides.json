@@ -271,5 +271,61 @@
     "models": [],
     "category": "port",
     "port": "out"
+  },
+  "jack": {
+    "pins": {
+      "-10,-2.5": "1",
+      "-10,7.5": "2"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "1",
+        "2"
+      ]
+    },
+    "models": [],
+    "category": "connector"
+  },
+  "dc-jack": {
+    "pins": {
+      "-10,-5": "+",
+      "-10,5": "-"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "+",
+        "-"
+      ]
+    },
+    "models": [],
+    "category": "connector"
+  },
+  "test-point": {
+    "pins": {
+      "-5,0": "TP"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "TP"
+      ]
+    },
+    "models": [],
+    "category": "test-point"
+  },
+  "nc": {
+    "pins": {
+      "-5,0": "NC"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "NC"
+      ]
+    },
+    "models": [],
+    "category": "nc"
   }
 }

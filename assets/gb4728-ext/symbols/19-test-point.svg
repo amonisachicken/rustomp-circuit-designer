@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 测试点 / Test Point | GB/T 4728.2（示意画法） | 画布 15 x 15 mm (2.5 mm 栅格) | 引脚: (2.5,7.5) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="15mm" height="15mm" viewBox="0 0 15 15"><g transform="translate(7.5,7.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="-5" y1="0" x2="1.5" y2="0" />
+      <circle cx="3.8" cy="0" r="2.3" />
+    </g>
+</svg>

@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "name": "二极管削波（非对称）",
+  "parts": [
+    {
+      "id": "p1",
+      "ref": "IN1",
+      "symbol": "node-in",
+      "at": {
+        "x": -60,
+        "y": 0
+      },
+      "rot": 0,
+      "mirror": "none"
+    },
+    {
+      "id": "p2",
+      "ref": "OUT1",
+      "symbol": "node-out",
+      "at": {
+        "x": 60,
+        "y": 0
+      },
+      "rot": 0,
+      "mirror": "none"
+    },
+    {
+      "id": "p3",
+      "ref": "R1",
+      "symbol": "resistor",
+      "at": {
+        "x": -20,
+        "y": 0
+      },
+      "rot": 0,
+      "mirror": "none",
+      "value": "10k"
+    },
+    {
+      "id": "p4",
+      "ref": "D1",
+      "symbol": "diode",
+      "at": {
+        "x": 20,
+        "y": 15
+      },
+      "rot": 90,
+      "mirror": "none",
+      "model": "1N4148"
+    },
+    {
+      "id": "p5",
+      "ref": "D2",
+      "symbol": "diode",
+      "at": {
+        "x": 35,
+        "y": 15
+      },
+      "rot": 270,
+      "mirror": "none",
+      "model": "1N34A"
+    },
+    {
+      "id": "p6",
+      "ref": "GND1",
+      "symbol": "earth",
+      "at": {
+        "x": 20,
+        "y": 40
+      },
+      "rot": 0,
+      "mirror": "none"
+    }
+  ],
+  "wires": [
+    {
+      "id": "w7",
+      "points": [
+        {
+          "x": -72.5,
+          "y": 0.0
+        },
+        {
+          "x": -32.5,
+          "y": 0.0
+        }
+      ]
+    },
+    {
+      "id": "w8",
+      "points": [
+        {
+          "x": -7.5,
+          "y": 0.0
+        },
+        {
+          "x": 47.5,
+          "y": 0.0
+        }
+      ]
+    },
+    {
+      "id": "w9",
+      "points": [
+        {
+          "x": 20,
+          "y": 0
+        },
+        {
+          "x": 20.0,
+          "y": 2.5
+        }
+      ]
+    },
+    {
+      "id": "w10",
+      "points": [
+        {
+          "x": 35,
+          "y": 0
+        },
+        {
+          "x": 35.0,
+          "y": 2.5
+        }
+      ]
+    },
+    {
+      "id": "w11",
+      "points": [
+        {
+          "x": 35.0,
+          "y": 27.5
+        },
+        {
+          "x": 20.0,
+          "y": 27.5
+        }
+      ]
+    }
+  ],
+  "nextId": 12
+}

@@ -40,7 +40,19 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 仿真（M-A）：示例 `?load=lowpass`（10k + 100n，fc≈159 Hz）在 1 kHz 下
 **稳态衰减实测 0.157**，与理论 `1/√(1+(f/fc)²)` 一致；10 ms 窗口 1505 点。
 
-> 调试开关：`?load=lowpass` 载入示例、`?sim=1` 直接打开仿真弹窗。
+> 调试开关：`?load=lowpass|noninverting|common-emitter|diode-clip` 载入示例/模板、`?sim=1` 直接开仿真。
+
+四个电路的实测（0.2 V / 1 kHz / 20 ms）：
+
+| 电路 | 输出稳态 | THD |
+|---|---|---|
+| `lowpass`（10k+100n） | 0.031 V（= 理论 0.157 衰减） | 0.00% |
+| `noninverting`（100k/10k，增益 11） | 2.20 V | 0.00% |
+| `common-emitter`（Rc/Re=10） | 3.28 V（撞到 9 V 轨） | **27.16%** |
+| `diode-clip`（1N4148 ∥ 1N34A） | 0.173 V | **20.07%** |
+
+**生成代码**（M-B）：非反相放大 → `rustomp-import --mna` → `N = 7`、`XU1 IN n1 VCC VEE OUT OP07A`，
+生成物里 `use rustomp_dsp::{GND, Netlist, OP07};` ✓。
 
 | 项 | 状态 |
 |---|---|
@@ -53,7 +65,7 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 | 网表输出契约（对接 `rustomp-import`） | ✅ `docs/05-netlist-contract.md` |
 | 分阶段计划 | ✅ `docs/06-roadmap.md` |
 | **D0 骨架** | ✅ 完成：符号清单 / 画布 + 模态编辑 / 后端 RPC / **网表导出 + lint** / 预览截图 |
-| **D1 起步** | ✅ **仿真**（ngspice 瞬态 + 波形图）、示例电路 `?load=lowpass`、位号不随元件旋转 |
+| **D1 起步** | ✅ **仿真**（ngspice 瞬态 + 波形图 + **THD**）、**生成代码**（调 `rustomp-import`）、悬空引脚红圈、4 个符号补齐（插孔/DC 座/测试点/空脚）、3 个模板、位号不随旋转 |
 
 ---
 

@@ -46,8 +46,16 @@ Q1 c b 0 BC549C
 
 | 指令 | 语法 | 生成的 Rust |
 |---|---|---|
-| 端口 | `in=<源名> out=<节点名>` | `pub const IN/OUT`、`FIXED_IN` |
-| 电位器 | `param <元素> <字段> pot max=<阻值> [invert]` | `Params.<字段>: f64`，`R = max·t`（`invert` ⇒ `max·(1−t)`） |
+| 端口 | `in=<节点名> out=<节点名>` | `pub const IN/OUT`、`FIXED_IN` |
+| 电位器 | `param <网表元件名> <字段> pot max=<阻值> [invert]` | `Params.<字段>: f64`，`R = max·t`（`invert` ⇒ `max·(1−t)`） |
+
+两条容易写错的细节（都是真踩过的）：
+
+- **`in=` 写的是节点名**（`in=IN`），不是元件名：导出的网表是**纯拓扑**，
+  激励由 DSP 每拍注入（见 §7），所以网表里没有"输入源"这个元件；
+- **`param` 的第一段元素名必须是网表里的元件名**（`RP1A`/`RP1B`，即电阻展开后的名字），
+  不是位号 `P1A` —— rustomp 侧靠它找到要参数化的那只电阻，写错了参数会被**静默丢弃**
+  （2026-10-27 对接时修正，见 `docs/00` D-019）。
 
 > **没有 `switch` 指令**。开关不生成元件（决策 D-005）：它把图变成 2ⁿ 份网表，
 > 每份都写成完整的普通电路。rustomp 侧现存的 `switch` 指令属 legacy，
@@ -111,13 +119,14 @@ Q1 c b 0 BC549C
 展开成两段电阻 + 一条 `param` 指令：
 
 ```spice
-* @rustomp param P1A gain pot max=500k
-* @rustomp param P1B gain pot max=500k invert
+* @rustomp param RP1A gain pot max=500k
+* @rustomp param RP1B gain pot max=500k invert
 RP1A 1 2 <500k·t>        ← 由生成器计算，网表里写标称值即可
 RP1B 2 3 <500k·(1−t)>
 ```
 
-**约定**：`P1A` 是 `1→2`（下端到抽头），`P1B` 是 `2→3`（抽头到上端）。
+**约定**：`RP1A` 是 `1→2`（下端到抽头），`RP1B` 是 `2→3`（抽头到上端）。
+指令里的元素名就是用这两个名字（`* @rustomp param RP1A ...`）。
 
 **标称值按 50% 抽头写**：`RP1A = RP1B = max/2`（例：`max=500k` → 两段都写 `250k`），
 抽头位置由 `param` 指令在 DSP 侧参数化。**前端不提供"行程/抽头位置"设置** ——
@@ -148,19 +157,27 @@ out/
 
 ## 7. 生成 → 验证的闭环
 
+**两个入口，产物同一个**（rustomp-import 自 2026-10-27 起直接认本项目的工程文件）：
+
 ```bash
-# 1) 设计器导出
-OUT1.cir
+# A) 首选：直接把工程文件（.design.json）交给 rustomp-import
+#    —— 不用先导出，也不会出现“图改了但忘了重导出”
+export RUSTOM_DESIGNER_SYMBOLS=<本仓>/symbols/symbols.json   # 引脚几何的唯一事实来源
+cargo run -q -p rustomp-import -- 该设计.design.json --mna src/generated/circuit.rs
 
-# 2) 直接跑 ngspice（图对不对，先看仿真）
-ngspice -b OUT1.cir
-
-# 3) 生成电路代码
+# B) 传统：先导出 .cir 再喂进去（两边结果逐行相同，rustomp 侧有对拍测试守着）
 cargo run -q -p rustomp-import -- OUT1.cir --mna src/generated/circuit.rs --check
 
-# 4) 与手写/离线结果对比
+# C) 图对不对，先看仿真（ngspice 直接跑导出的网表）
+ngspice -b OUT1.cir
+
+# D) 与手写/离线结果对比
 cargo test --workspace
 ```
+
+> 注意 C：导出的网表是**纯拓扑**，自身没有激励源（仿真时由 DSP 或仿真弹窗注入）——
+> 直接 `ngspice -b` 只能看工作点；要跑瞬态得自己补一行 `VSIM IN 0 DC 0 SIN(...)`。
+> 设计器里的【仿真】按钮就是自动补这一行（`docs/07`）。
 
 **已实现**：
 

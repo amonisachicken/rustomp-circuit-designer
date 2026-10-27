@@ -406,8 +406,8 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
         if p.symbol == "potentiometer" {
             let field = p.alias.clone().unwrap_or_else(|| p.r#ref.to_lowercase());
             let max = p.value.clone().unwrap_or_else(|| "500k".into());
-            cir.push_str(&format!("* @rustomp param {}A {field} pot max={max}\n", p.r#ref));
-            cir.push_str(&format!("* @rustomp param {}B {field} pot max={max} invert\n", p.r#ref));
+            cir.push_str(&format!("* @rustomp param R{}A {field} pot max={max}\n", p.r#ref));
+            cir.push_str(&format!("* @rustomp param R{}B {field} pot max={max} invert\n", p.r#ref));
         }
         let _ = sym;
     }
@@ -630,8 +630,8 @@ R2 IN OUT 10k
             wires: vec![],
         };
         let g = generate(&d, &table());
-        assert!(g.cir.contains("* @rustomp param P1A gain pot max=500k"));
-        assert!(g.cir.contains("* @rustomp param P1B gain pot max=500k invert"));
+        assert!(g.cir.contains("* @rustomp param RP1A gain pot max=500k"));
+        assert!(g.cir.contains("* @rustomp param RP1B gain pot max=500k invert"));
         // 引脚 1（左）= 地、2（抽头）= 自动命名 n1、3（右）= IN
         // 50% 抽头：两段标称值都是 max/2（param 指令里保留 max=500k）
         assert!(g.cir.contains("RP1A 0 n1 250k"), "实际：\n{}", g.cir);

@@ -68,12 +68,31 @@ pub fn save(repo: &Path, name: &str, doc: &serde_json::Value) -> Result<SaveResu
 /// 读回"上次保存"的设计；没有就返回 None（首次启动）。
 pub fn last(repo: &Path) -> Result<Option<LastDesign>, String> {
     let ptr = last_pointer(repo);
-    let Ok(file) = std::fs::read_to_string(&ptr) else {
-        return Ok(None);
-    };
-    let file = file.trim().to_string();
+    // 指针文件可能不存在（功能上线前保存的设计）→ 当作空，走下面的"取最新一份"回退
+    let mut file = std::fs::read_to_string(&ptr).unwrap_or_default().trim().to_string();
+    // 指针缺失/为空时（例如设计是在"记忆上次保存"功能之前存的），退而取缓存里**最新**的一份；
+    // 顺手把指针补上，下次就精确了。
     if file.is_empty() {
-        return Ok(None);
+        let dir = data_dir(repo);
+        let newest = std::fs::read_dir(&dir)
+            .ok()
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".design.json"))
+            .filter_map(|e| {
+                let p = e.path();
+                let m = e.metadata().and_then(|m| m.modified()).ok()?;
+                Some((m, e.file_name().to_string_lossy().to_string()))
+            })
+            .max_by_key(|(m, _)| *m);
+        match newest {
+            Some((_, name)) => {
+                let _ = std::fs::write(&ptr, &name);
+                file = name;
+            }
+            None => return Ok(None),
+        }
     }
     let path = data_dir(repo).join(&file);
     let text = match std::fs::read_to_string(&path) {

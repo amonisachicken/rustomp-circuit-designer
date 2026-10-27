@@ -3,8 +3,14 @@ node_modules/
 dist/
 .vite/
 
+# 由 scripts/sync-symbols.mjs 同步出来的副本（真源在 assets/ 与 symbols/symbols.json）
+frontend/public/symbols/
+
 # Rust
 target/
+
+# 从 breadspice 复制/克隆的骨架（不入库，见 D-010）
+vendor/breadspice/
 
 # 编辑器/系统
 .DS_Store

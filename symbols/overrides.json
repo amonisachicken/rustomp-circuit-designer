@@ -1,0 +1,275 @@
+{
+  "_comment": "手写的引脚名 / SPICE 顺序 / 可用型号（几何推导不出来的部分）。坐标 key = 局部坐标（符号原点为原点，mm），格式 \"x,y\"。几何一变 key 就对不上 → 脚本报错（docs/04 §2.1）。",
+  "resistor": {
+    "pins": {
+      "-12.5,0": "1",
+      "12.5,0": "2"
+    },
+    "spice": {
+      "prefix": "R",
+      "pinOrder": [
+        "1",
+        "2"
+      ]
+    },
+    "models": [],
+    "category": "passive"
+  },
+  "capacitor": {
+    "pins": {
+      "-12.5,0": "1",
+      "12.5,0": "2"
+    },
+    "spice": {
+      "prefix": "C",
+      "pinOrder": [
+        "1",
+        "2"
+      ]
+    },
+    "models": [],
+    "category": "passive"
+  },
+  "potentiometer": {
+    "pins": {
+      "-12.5,0": "1",
+      "5,-12.5": "2",
+      "12.5,0": "3"
+    },
+    "spice": {
+      "prefix": "P",
+      "pinOrder": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    "models": [],
+    "category": "passive"
+  },
+  "diode": {
+    "pins": {
+      "-12.5,0": "A",
+      "12.5,0": "K"
+    },
+    "spice": {
+      "prefix": "D",
+      "pinOrder": [
+        "A",
+        "K"
+      ]
+    },
+    "models": [
+      "1N4148",
+      "1N34A",
+      "1N4007",
+      "1N5817"
+    ],
+    "category": "diode"
+  },
+  "led": {
+    "pins": {
+      "-12.5,0": "A",
+      "12.5,0": "K"
+    },
+    "spice": {
+      "prefix": "D",
+      "pinOrder": [
+        "A",
+        "K"
+      ]
+    },
+    "models": [
+      "LedRed",
+      "LedGreen",
+      "LedBLUE"
+    ],
+    "category": "led"
+  },
+  "voltage-source": {
+    "pins": {
+      "0,-12.5": "+",
+      "0,12.5": "-"
+    },
+    "spice": {
+      "prefix": "V",
+      "pinOrder": [
+        "+",
+        "-"
+      ]
+    },
+    "models": [],
+    "category": "source"
+  },
+  "npn": {
+    "pins": {
+      "-12.5,0": "B",
+      "2.5,-12.5": "C",
+      "2.5,12.5": "E"
+    },
+    "spice": {
+      "prefix": "Q",
+      "pinOrder": [
+        "C",
+        "B",
+        "E"
+      ]
+    },
+    "models": [
+      "BC549C",
+      "AC127"
+    ],
+    "category": "bjt"
+  },
+  "pnp": {
+    "pins": {
+      "-12.5,0": "B",
+      "2.5,-12.5": "C",
+      "2.5,12.5": "E"
+    },
+    "spice": {
+      "prefix": "Q",
+      "pinOrder": [
+        "C",
+        "B",
+        "E"
+      ]
+    },
+    "models": [
+      "BC559C",
+      "AC128"
+    ],
+    "category": "bjt"
+  },
+  "jfet-n": {
+    "pins": {
+      "-12.5,0": "G",
+      "2.5,-12.5": "D",
+      "2.5,12.5": "S"
+    },
+    "spice": {
+      "prefix": "J",
+      "pinOrder": [
+        "D",
+        "G",
+        "S"
+      ]
+    },
+    "models": [
+      "J201"
+    ],
+    "category": "jfet"
+  },
+  "mosfet-n": {
+    "pins": {
+      "-12.5,0": "G",
+      "5,-12.5": "D",
+      "5,12.5": "S"
+    },
+    "spice": {
+      "prefix": "M",
+      "pinOrder": [
+        "D",
+        "G",
+        "S"
+      ]
+    },
+    "models": [
+      "2N7000"
+    ],
+    "category": "mosfet"
+  },
+  "opamp": {
+    "pins": {
+      "-15,-5": "IN+",
+      "-15,5": "IN-",
+      "15,0": "OUT",
+      "0,-12.5": "V+",
+      "0,12.5": "V-"
+    },
+    "spice": {
+      "prefix": "X",
+      "pinOrder": [
+        "IN+",
+        "IN-",
+        "V+",
+        "V-",
+        "OUT"
+      ]
+    },
+    "models": [
+      "OP07A"
+    ],
+    "category": "opamp"
+  },
+  "earth": {
+    "pins": {
+      "0,-12.5": "GND"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "GND"
+      ]
+    },
+    "models": [],
+    "category": "net-label",
+    "netName": "0"
+  },
+  "vcc": {
+    "pins": {
+      "0,12.5": "VCC"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "VCC"
+      ]
+    },
+    "models": [],
+    "category": "net-label",
+    "netName": "VCC"
+  },
+  "vee": {
+    "pins": {
+      "0,-12.5": "VEE"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "VEE"
+      ]
+    },
+    "models": [],
+    "category": "net-label",
+    "netName": "VEE"
+  },
+  "node-in": {
+    "pins": {
+      "-12.5,0": "IN"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "IN"
+      ]
+    },
+    "models": [],
+    "category": "port",
+    "port": "in"
+  },
+  "node-out": {
+    "pins": {
+      "-12.5,0": "OUT"
+    },
+    "spice": {
+      "prefix": "",
+      "pinOrder": [
+        "OUT"
+      ]
+    },
+    "models": [],
+    "category": "port",
+    "port": "out"
+  }
+}

@@ -25,6 +25,14 @@
 **D0 进行中**：先有资产与契约，再写编辑器 —— 这两件事定错了，后面所有东西都要返工。
 （需求以 `prompt.md` 为准；与旧文档冲突处已在 `docs/00` 的 D-007…D-010 记录取舍。）
 
+已经能跑：
+
+```bash
+./tools/gen-symbols.py            # 符号 → symbols/symbols.json（含与 kit PINS 表的交叉校验）
+cd frontend && npm install && npm run dev    # 画布 + 模态编辑（r/c/w/q/m/空格/d + esc）
+cd backend && cargo run           # 后端（designer.ping / designer.symbols）
+```
+
 | 项 | 状态 |
 |---|---|
 | **关键决策**（架构/坐标/格式/模态交互/**不做开关**/预览=截图） | ✅ `docs/00-decisions.md`（D-001…D-010） |
@@ -35,7 +43,7 @@
 | 符号 → 运行时清单（`symbols.json`） | ✅ 设计已定，脚本待写 `docs/04-symbol-pipeline.md` |
 | 网表输出契约（对接 `rustomp-import`） | ✅ `docs/05-netlist-contract.md` |
 | 分阶段计划 | ✅ `docs/06-roadmap.md` |
-| 代码 | ⬜ D0 进行中 |
+| **D0 骨架** | 🚧 进行中：符号清单 ✅ / 前端画布 + 模态编辑 ✅ / 后端 ping+symbols ✅ / 网表导出 ⬜ |
 
 ---
 

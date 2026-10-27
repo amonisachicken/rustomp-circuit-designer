@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>rustomp 电路设计器</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header id="bar">
+      <strong>rustomp 电路设计器</strong>
+      <span class="sep"></span>
+      <button id="btnUndo" title="撤销（⌘/Ctrl+Z）">↶</button>
+      <button id="btnRedo" title="重做（⇧⌘/Ctrl+Z）">↷</button>
+      <button id="btnNew" title="新建">新建</button>
+      <button id="btnSave" title="保存 .design.json">保存</button>
+      <button id="btnPreview" title="预览 = 生成可保存的截图">预览</button>
+      <button id="btnNetlist" title="生成网表（D1）" disabled>生成网表</button>
+      <span class="step"></span>
+      <span id="mode" class="mode">查看</span>
+    </header>
+
+    <main id="stage">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+      <aside id="props" hidden></aside>
+    </main>
+
+    <footer id="status">
+      <span id="hint">载入中…</span>
+      <span class="grow"></span>
+      <span id="stats"></span>
+      <span class="sep">·</span>
+      <span id="pos"></span>
+    </footer>
+
+    <dialog id="palette">
+      <h2>元件库（点一个进入放置模式）</h2>
+      <div id="paletteList" class="palette"></div>
+      <p class="muted">符号依据 GB/T 4728 / idt IEC 60617，引脚按名绑定。</p>
+    </dialog>
+
+    <dialog id="preview">
+      <h2>预览截图</h2>
+      <div id="previewImg"></div>
+      <p><button id="previewSave">保存 PNG</button></p>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

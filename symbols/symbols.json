@@ -1,0 +1,748 @@
+{
+  "grid": 2.5,
+  "symbols": {
+    "capacitor": {
+      "canvas": {
+        "h": 15.0,
+        "w": 30.0
+      },
+      "category": "passive",
+      "file": "assets/gb4728-symbols-kit/symbols/02-capacitor.svg",
+      "models": [],
+      "name": {
+        "en": "Capacitor",
+        "zh": "电容器（无极）"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 7.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "1"
+        },
+        {
+          "at": {
+            "x": 12.5,
+            "y": 0.0
+          },
+          "dir": "right",
+          "id": "2"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "1",
+          "2"
+        ],
+        "prefix": "C"
+      },
+      "standard": "GB/T 4728.4"
+    },
+    "diode": {
+      "canvas": {
+        "h": 15.0,
+        "w": 30.0
+      },
+      "category": "diode",
+      "file": "assets/gb4728-symbols-kit/symbols/04-diode.svg",
+      "models": [
+        "1N4148",
+        "1N34A",
+        "1N4007",
+        "1N5817"
+      ],
+      "name": {
+        "en": "Diode",
+        "zh": "二极管"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 7.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "A"
+        },
+        {
+          "at": {
+            "x": 12.5,
+            "y": 0.0
+          },
+          "dir": "right",
+          "id": "K"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "A",
+          "K"
+        ],
+        "prefix": "D"
+      },
+      "standard": "GB/T 4728.5"
+    },
+    "earth": {
+      "canvas": {
+        "h": 22.5,
+        "w": 15.0
+      },
+      "category": "net-label",
+      "file": "assets/gb4728-symbols-kit/symbols/12-earth.svg",
+      "models": [],
+      "name": {
+        "en": "Ground",
+        "zh": "接地"
+      },
+      "netName": "0",
+      "origin": {
+        "x": 7.5,
+        "y": 15.0
+      },
+      "pins": [
+        {
+          "at": {
+            "x": 0.0,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "GND"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "GND"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.2"
+    },
+    "jfet-n": {
+      "canvas": {
+        "h": 35.0,
+        "w": 25.0
+      },
+      "category": "jfet",
+      "file": "assets/gb4728-symbols-kit/symbols/09-jfet-n.svg",
+      "models": [
+        "J201"
+      ],
+      "name": {
+        "en": "N-channel JFET",
+        "zh": "N 沟道结型场效应管"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 17.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "G"
+        },
+        {
+          "at": {
+            "x": 2.5,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "D"
+        },
+        {
+          "at": {
+            "x": 2.5,
+            "y": 12.5
+          },
+          "dir": "down",
+          "id": "S"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "D",
+          "G",
+          "S"
+        ],
+        "prefix": "J"
+      },
+      "standard": "GB/T 4728.5"
+    },
+    "led": {
+      "canvas": {
+        "h": 20.0,
+        "w": 30.0
+      },
+      "category": "led",
+      "file": "assets/gb4728-symbols-kit/symbols/05-led.svg",
+      "models": [
+        "LedRed",
+        "LedGreen",
+        "LedBLUE"
+      ],
+      "name": {
+        "en": "Light Emitting Diode",
+        "zh": "发光二极管"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 12.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "A"
+        },
+        {
+          "at": {
+            "x": 12.5,
+            "y": 0.0
+          },
+          "dir": "right",
+          "id": "K"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "A",
+          "K"
+        ],
+        "prefix": "D"
+      },
+      "standard": "GB/T 4728.5"
+    },
+    "mosfet-n": {
+      "canvas": {
+        "h": 35.0,
+        "w": 27.5
+      },
+      "category": "mosfet",
+      "file": "assets/gb4728-symbols-kit/symbols/10-mosfet-n.svg",
+      "models": [
+        "2N7000"
+      ],
+      "name": {
+        "en": "N-channel E-MOSFET",
+        "zh": "N 沟道增强型 MOSFET"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 17.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "G"
+        },
+        {
+          "at": {
+            "x": 5.0,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "D"
+        },
+        {
+          "at": {
+            "x": 5.0,
+            "y": 12.5
+          },
+          "dir": "down",
+          "id": "S"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "D",
+          "G",
+          "S"
+        ],
+        "prefix": "M"
+      },
+      "standard": "GB/T 4728.5"
+    },
+    "node-in": {
+      "canvas": {
+        "h": 15.0,
+        "w": 25.0
+      },
+      "category": "port",
+      "file": "assets/gb4728-symbols-kit/symbols/15-node-in.svg",
+      "models": [],
+      "name": {
+        "en": "Input Node",
+        "zh": "In 节点"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 7.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "IN"
+        }
+      ],
+      "port": "in",
+      "spice": {
+        "pinOrder": [
+          "IN"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.3"
+    },
+    "node-out": {
+      "canvas": {
+        "h": 15.0,
+        "w": 25.0
+      },
+      "category": "port",
+      "file": "assets/gb4728-symbols-kit/symbols/16-node-out.svg",
+      "models": [],
+      "name": {
+        "en": "Output Node",
+        "zh": "Out 节点"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 7.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "OUT"
+        }
+      ],
+      "port": "out",
+      "spice": {
+        "pinOrder": [
+          "OUT"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.3"
+    },
+    "npn": {
+      "canvas": {
+        "h": 35.0,
+        "w": 27.5
+      },
+      "category": "bjt",
+      "file": "assets/gb4728-symbols-kit/symbols/07-npn.svg",
+      "models": [
+        "BC549C",
+        "AC127"
+      ],
+      "name": {
+        "en": "NPN Transistor",
+        "zh": "NPN 型晶体管"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 17.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "B"
+        },
+        {
+          "at": {
+            "x": 2.5,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "C"
+        },
+        {
+          "at": {
+            "x": 2.5,
+            "y": 12.5
+          },
+          "dir": "down",
+          "id": "E"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "C",
+          "B",
+          "E"
+        ],
+        "prefix": "Q"
+      },
+      "standard": "GB/T 4728.5"
+    },
+    "opamp": {
+      "canvas": {
+        "h": 35.0,
+        "w": 35.0
+      },
+      "category": "opamp",
+      "file": "assets/gb4728-symbols-kit/symbols/11-opamp.svg",
+      "models": [
+        "OP07A"
+      ],
+      "name": {
+        "en": "Operational Amplifier",
+        "zh": "运算放大器"
+      },
+      "origin": {
+        "x": 17.5,
+        "y": 17.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -15.0,
+            "y": -5.0
+          },
+          "dir": "left",
+          "id": "IN+"
+        },
+        {
+          "at": {
+            "x": -15.0,
+            "y": 5.0
+          },
+          "dir": "left",
+          "id": "IN-"
+        },
+        {
+          "at": {
+            "x": 15.0,
+            "y": 0.0
+          },
+          "dir": "right",
+          "id": "OUT"
+        },
+        {
+          "at": {
+            "x": 0.0,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "V+"
+        },
+        {
+          "at": {
+            "x": 0.0,
+            "y": 12.5
+          },
+          "dir": "down",
+          "id": "V-"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "IN+",
+          "IN-",
+          "V+",
+          "V-",
+          "OUT"
+        ],
+        "prefix": "X"
+      },
+      "standard": "GB/T 4728.13"
+    },
+    "pnp": {
+      "canvas": {
+        "h": 35.0,
+        "w": 27.5
+      },
+      "category": "bjt",
+      "file": "assets/gb4728-symbols-kit/symbols/08-pnp.svg",
+      "models": [
+        "BC559C",
+        "AC128"
+      ],
+      "name": {
+        "en": "PNP Transistor",
+        "zh": "PNP 型晶体管"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 17.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "B"
+        },
+        {
+          "at": {
+            "x": 2.5,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "C"
+        },
+        {
+          "at": {
+            "x": 2.5,
+            "y": 12.5
+          },
+          "dir": "down",
+          "id": "E"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "C",
+          "B",
+          "E"
+        ],
+        "prefix": "Q"
+      },
+      "standard": "GB/T 4728.5"
+    },
+    "potentiometer": {
+      "canvas": {
+        "h": 22.5,
+        "w": 30.0
+      },
+      "category": "passive",
+      "file": "assets/gb4728-symbols-kit/symbols/03-potentiometer.svg",
+      "models": [],
+      "name": {
+        "en": "Potentiometer",
+        "zh": "电位器"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 17.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "1"
+        },
+        {
+          "at": {
+            "x": 5.0,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "2"
+        },
+        {
+          "at": {
+            "x": 12.5,
+            "y": 0.0
+          },
+          "dir": "right",
+          "id": "3"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "1",
+          "2",
+          "3"
+        ],
+        "prefix": "P"
+      },
+      "standard": "GB/T 4728.4"
+    },
+    "resistor": {
+      "canvas": {
+        "h": 10.0,
+        "w": 30.0
+      },
+      "category": "passive",
+      "file": "assets/gb4728-symbols-kit/symbols/01-resistor.svg",
+      "models": [],
+      "name": {
+        "en": "Resistor",
+        "zh": "电阻器"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 5.0
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "1"
+        },
+        {
+          "at": {
+            "x": 12.5,
+            "y": 0.0
+          },
+          "dir": "right",
+          "id": "2"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "1",
+          "2"
+        ],
+        "prefix": "R"
+      },
+      "standard": "GB/T 4728.4"
+    },
+    "vcc": {
+      "canvas": {
+        "h": 22.5,
+        "w": 15.0
+      },
+      "category": "net-label",
+      "file": "assets/gb4728-symbols-kit/symbols/13-vcc.svg",
+      "models": [],
+      "name": {
+        "en": "Supply Vcc",
+        "zh": "Vcc 电源端"
+      },
+      "netName": "VCC",
+      "origin": {
+        "x": 7.5,
+        "y": 7.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": 0.0,
+            "y": 12.5
+          },
+          "dir": "down",
+          "id": "VCC"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "VCC"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.3"
+    },
+    "vee": {
+      "canvas": {
+        "h": 25.0,
+        "w": 15.0
+      },
+      "category": "net-label",
+      "file": "assets/gb4728-symbols-kit/symbols/14-vee.svg",
+      "models": [],
+      "name": {
+        "en": "Supply Vee",
+        "zh": "Vee 电源端"
+      },
+      "netName": "VEE",
+      "origin": {
+        "x": 7.5,
+        "y": 15.0
+      },
+      "pins": [
+        {
+          "at": {
+            "x": 0.0,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "VEE"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "VEE"
+        ],
+        "prefix": ""
+      },
+      "standard": "GB/T 4728.3"
+    },
+    "voltage-source": {
+      "canvas": {
+        "h": 30.0,
+        "w": 20.0
+      },
+      "category": "source",
+      "file": "assets/gb4728-symbols-kit/symbols/06-voltage-source.svg",
+      "models": [],
+      "name": {
+        "en": "Voltage Source",
+        "zh": "电压源"
+      },
+      "origin": {
+        "x": 10.0,
+        "y": 15.0
+      },
+      "pins": [
+        {
+          "at": {
+            "x": 0.0,
+            "y": -12.5
+          },
+          "dir": "up",
+          "id": "+"
+        },
+        {
+          "at": {
+            "x": 0.0,
+            "y": 12.5
+          },
+          "dir": "down",
+          "id": "-"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "+",
+          "-"
+        ],
+        "prefix": "V"
+      },
+      "standard": "GB/T 4728.6"
+    }
+  },
+  "unit": "mm",
+  "version": 1
+}

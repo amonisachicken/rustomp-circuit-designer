@@ -1,0 +1,19 @@
+{
+  "name": "rustomp-circuit-designer-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "原理图画布（模态编辑）—— 零运行时依赖",
+  "scripts": {
+    "predev": "node scripts/sync-symbols.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/sync-symbols.mjs",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  }
+}

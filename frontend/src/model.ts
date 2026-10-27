@@ -137,6 +137,36 @@ function toWire(s: { horiz: boolean; coord: number; lo: number; hi: number; id: 
     : { id: s.id, points: [{ x: s.coord, y: s.lo }, { x: s.coord, y: s.hi }] };
 }
 
+/** 各类元件允许的数值单位（第一个是默认；`""` = 基本单位 Ω/V） */
+export const VALUE_UNITS: Record<string, string[]> = {
+  resistor: ["k", "Ω"],
+  capacitor: ["n", "p", "u"],
+  potentiometer: ["k", "Ω"],
+  "voltage-source": ["V"],
+};
+
+/** 数值单位的显示名（"Ω" 在 SPICE 里不写后缀） */
+export const UNIT_LABEL: Record<string, string> = { "": "Ω", k: "kΩ", p: "pF", n: "nF", u: "µF", V: "V" };
+
+/** "10k" → { num: 10, unit: "k" }；"9" → { num: 9, unit: "" } */
+export function splitValue(value: string | undefined, units: string[]): { num: string; unit: string } {
+  const def = units[0] ?? "";
+  if (!value) return { num: "", unit: def };
+  const m = /^\s*([-+]?[\d.]+)\s*(p|n|u|µ|m|k|M|V)?\s*$/.exec(value);
+  if (!m) return { num: value, unit: def };
+  const raw = m[2] ?? "";
+  const unit = raw === "µ" ? "u" : raw === "V" ? "V" : raw;
+  // 单位不在允许列表里（比如老文件写了 "47m"）→ 保持数字，单位退回默认，避免静默改值
+  return { num: m[1] ?? "", unit: units.includes(unit) ? unit : def };
+}
+
+/** 组装 SPICE 数值：单位 "Ω"/"V" 都不写后缀 */
+export function joinValue(num: string, unit: string): string {
+  const n = num.trim();
+  if (!n) return "";
+  return unit === "Ω" || unit === "V" || unit === "" ? n : `${n}${unit}`;
+}
+
 /** 参考编号前缀 → 下一个可用编号（R1、R2…；按现有最大号 +1，不填补空洞） */
 export function nextRef(doc: Doc, prefix: string): string {
   let max = 0;

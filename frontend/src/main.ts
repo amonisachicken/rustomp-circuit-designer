@@ -3,7 +3,17 @@
 
 import { backend, type NetlistResult, type SimResult } from "./backend";
 import { drawWaveform } from "./plot";
-import { emptyDoc, normalizeWires, snap, type Doc, type Part } from "./model";
+import {
+  VALUE_UNITS,
+  UNIT_LABEL,
+  emptyDoc,
+  joinValue,
+  normalizeWires,
+  snap,
+  splitValue,
+  type Doc,
+  type Part,
+} from "./model";
 import { loadAllArt, loadArt, loadSymbols, type SymText, type SymbolTable } from "./symbols";
 import { fitView, hitTest, mmToScreen, render, screenToMm, type View } from "./render";
 import {
@@ -173,8 +183,12 @@ window.addEventListener("keydown", (ev) => {
 
   if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z") {
     ev.preventDefault();
-    if (ev.shiftKey) redo();
-    else undo();
+    undo();
+    return;
+  }
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "y") {
+    ev.preventDefault();
+    redo();
     return;
   }
   if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "r") {
@@ -430,8 +444,16 @@ function selectPart(partId: string, open: boolean): void {
         : ""
     }
     ${
-      sym.category === "passive"
-        ? `<label>值 <input id="p-value" value="${p.value ?? ""}"></label>`
+      VALUE_UNITS[p.symbol]
+        ? (() => {
+            const units = VALUE_UNITS[p.symbol]!;
+            const { num, unit } = splitValue(p.value, units);
+            const opts = units
+              .map((u) => `<option value="${u}" ${u === unit ? "selected" : ""}>${UNIT_LABEL[u] ?? u}</option>`)
+              .join("");
+            return `<label>数值 <input id="p-num" type="number" step="any" inputmode="decimal" value="${num}" placeholder="例如 10">
+              <select id="p-unit" ${units.length === 1 ? "disabled" : ""}>${opts}</select></label>`;
+          })()
         : ""
     }
     <label>旋转 <select id="p-rot">${[0, 90, 180, 270]
@@ -451,7 +473,20 @@ function selectPart(partId: string, open: boolean): void {
   bind("p-ref", (v) => (p.ref = v.trim() || p.ref));
   bind("p-alias", (v) => (v.trim() ? (p.alias = v.trim()) : delete p.alias));
   bind("p-model", (v) => (p.model = v));
-  bind("p-value", (v) => (p.value = v));
+
+  // 数值：文本框（数字）+ 单位下拉 → 组装成 SPICE 写法（"10k" / "100n" / "9"）
+  if (VALUE_UNITS[p.symbol]) {
+    const units = VALUE_UNITS[p.symbol]!;
+    const numEl = panel.querySelector<HTMLInputElement>("#p-num");
+    const unitEl = panel.querySelector<HTMLSelectElement>("#p-unit");
+    const apply2 = (): void => {
+      hooks.commit();
+      p.value = joinValue(numEl?.value ?? "", unitEl?.value ?? units[0] ?? "");
+      repaint();
+    };
+    numEl?.addEventListener("change", apply2);
+    unitEl?.addEventListener("change", apply2);
+  }
   bind("p-rot", (v) => (p.rot = Number(v) as Part["rot"]));
 }
 
@@ -745,6 +780,23 @@ async function main(): Promise<void> {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "h", bubbles: true }));
     results.push(`key-h=${$<HTMLDialogElement>("#help").open}`);
     $<HTMLDialogElement>("#help").close();
+
+    // ⑪ 数值单位：拆/装往返 + 单位换算
+    const sp = splitValue("4.7u", VALUE_UNITS["capacitor"]!);
+    results.push(`value-split=${sp.num === "4.7" && sp.unit === "u"}`);
+    results.push(`value-join=${joinValue("10", "k") === "10k" && joinValue("470", "Ω") === "470" && joinValue("9", "V") === "9"}`);
+    const legacy = splitValue("47m", VALUE_UNITS["capacitor"]!);
+    results.push(`value-legacy=${legacy.num === "47" && legacy.unit === "n"}`);
+
+    // ⑫ ⌘/Ctrl+Y 重做（先撤销一次再重做回来）
+    const n0 = doc.parts.length;
+    enterPlace("resistor", table, hooks, { x: 0, y: 200 });
+    commitPlace(mode as unknown as Extract<Mode, { kind: "place" }>, hooks);
+    hooks.setMode({ kind: "view" });
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", metaKey: true, bubbles: true }));
+    const afterUndo = doc.parts.length;
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "y", metaKey: true, bubbles: true }));
+    results.push(`redo-ctrl-y=${afterUndo === n0 && doc.parts.length === n0 + 1}`);
 
     const ok = results.every((x) => x.endsWith("=true"));
     $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;

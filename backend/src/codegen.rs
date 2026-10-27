@@ -35,6 +35,39 @@ fn framework_root(repo: &Path) -> Option<PathBuf> {
     None
 }
 
+/// rustomp-import 的源码是否比给定二进制新（新了就说明这个二进制不能信）。
+fn import_sources_newer_than(fw: &Path, bin: &Path) -> bool {
+    let Ok(bin_time) = bin.metadata().and_then(|m| m.modified()) else {
+        return true;
+    };
+    let mut newest = None;
+    let mut stack = vec![fw.join("crates/rustomp-import")];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+                continue;
+            }
+            let interesting = p
+                .extension()
+                .and_then(|s| s.to_str())
+                .map(|s| s == "rs" || s == "toml")
+                .unwrap_or(false);
+            if !interesting {
+                continue;
+            }
+            if let Ok(t) = e.metadata().and_then(|m| m.modified()) {
+                if newest.map(|n| t > n).unwrap_or(true) {
+                    newest = Some(t);
+                }
+            }
+        }
+    }
+    newest.map(|t| t > bin_time).unwrap_or(true)
+}
+
 /// 调 rustomp-import 生成代码。`cir` 是交付网表（单份）。
 pub fn generate(repo: &Path, cir: &str) -> Result<CodegenResult, String> {
     let fw = framework_root(repo).ok_or_else(|| {
@@ -47,10 +80,19 @@ pub fn generate(repo: &Path, cir: &str) -> Result<CodegenResult, String> {
     let rs_path = dir.join("circuit.rs");
     std::fs::write(&cir_path, cir).map_err(|e| e.to_string())?;
 
-    let bin = ["release", "debug"]
+    let bins = ["release", "debug"]
         .iter()
         .map(|p| fw.join(format!("target/{p}/rustomp-import")))
-        .find(|p| p.is_file());
+        .filter(|p| p.is_file())
+        .collect::<Vec<_>>();
+
+    // **预编译的二进制可能比源码老**：rustomp-import 改了（例如 `in=` 语义、`param`
+    // 元素名）而没重新 build，点【生成代码】就会静静拿到旧版产的代码。
+    // 所以先比 mtime：源码/清单晚于二进制 → 直接走 `cargo run`（编译一次，之后又快了）。
+    let bin = bins
+        .iter()
+        .find(|b| !import_sources_newer_than(&fw, b))
+        .cloned();
 
     let output = match bin {
         Some(bin) => Command::new(bin)
@@ -60,7 +102,7 @@ pub fn generate(repo: &Path, cir: &str) -> Result<CodegenResult, String> {
             .output()
             .map_err(|e| format!("启动 rustomp-import 失败：{e}"))?,
         None => Command::new("cargo")
-            .args(["run", "-q", "--release", "-p", "rustomp-import", "--"])
+            .args(["run", "-q", "-p", "rustomp-import", "--"])
             .arg(&cir_path)
             .arg("--mna")
             .arg(&rs_path)

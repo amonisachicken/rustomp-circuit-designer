@@ -22,16 +22,21 @@
 
 ## 现状（2026-10-25）
 
-**D0 进行中**：先有资产与契约，再写编辑器 —— 这两件事定错了，后面所有东西都要返工。
-（需求以 `prompt.md` 为准；与旧文档冲突处已在 `docs/00` 的 D-007…D-010 记录取舍。）
+**D0 完成、D1 大部分完成**（2026-10-27）：能模态编辑画原理图、能跑 `tran`/`ac` 仿真、
+能把网表交给 `rustomp-import` 生成可编译的 `Ckt`，并且已经在真实电路上验证过。
+（需求以 `prompt.md` 为准；与旧文档冲突处已在 `docs/00` 记录取舍，D-001…D-018。）
+
+规模：前端 2429 行 TS+CSS、后端 1870 行 Rust、工具 453 行 Python；符号 18 个；
+文档 `docs/` 1490 行（另 README 183、DEVLOG 205）。
+开发过程（做了什么、为什么、踩了什么坑）逐条记在 **`DEVLOG.md`**；结论进 `docs/00-decisions.md`。
 
 已经能跑：
 
 ```bash
 ./tools/gen-symbols.py                        # 符号 → symbols/symbols.json（与 kit 的 PINS 表交叉校验）
-cd backend && cargo run                       # 后端：designer.ping / symbols / netlist（127.0.0.1:3600）
+cd backend && cargo run                       # 后端：designer.ping / symbols / netlist / simulate / save（127.0.0.1:3600）
 cd frontend && npm install && npm run dev      # 画布 + 模态编辑（r/c/w/q/m/空格/d + esc）
-cd backend && cargo test                       # 9 个测试（含网表黄金文件）
+cd backend && cargo test                       # 16 个测试（含网表黄金文件 + 真跑 ngspice 的 tran/ac）
 ```
 
 实测链路（M-B 雏形）：设计器画 `R1/R2 + GND + IN/OUT` → 导出 `.cir` →
@@ -41,7 +46,8 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 **稳态衰减实测 0.157**，与理论 `1/√(1+(f/fc)²)` 一致；10 ms 窗口 1505 点。
 
 > 调试开关：`?load=lowpass|noninverting|common-emitter|diode-clip` 载入示例/模板、
-> `?sim=1` 直接开仿真、`?selftest=1` 冒烟（命中区/双击属性/导线归一化）。
+> `?sim=1` 直接开仿真、`?selftest=1` 冒烟（**22 项**：命中区 / 双击属性 / 导线归一化 /
+> 文字锚点 / 快捷键 / 保存清历史 / 仿真探针 / 查看模式拖动平移）。
 
 四个电路的实测（0.2 V / 1 kHz / 20 ms）：
 
@@ -57,16 +63,19 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 
 | 项 | 状态 |
 |---|---|
-| **关键决策**（架构/坐标/格式/模态交互/**不做开关**/预览=截图） | ✅ `docs/00-decisions.md`（D-001…D-010） |
-| 核心符号资产（GB/T 4728，16 个符号，全部按标准手绘） | ✅ 已导入 `assets/gb4728-symbols-kit/` |
+| **关键决策**（架构/坐标/格式/模态交互/**不做开关**/预览=截图/导线归一化/命中区/文字锚点/数值单位/保存语义/仿真复用/仪表挂元件/文案规矩） | ✅ `docs/00-decisions.md`（D-001…D-018） |
+| 核心符号资产（GB/T 4728，16 个符号，全部按标准手绘） | ✅ 已导入 `assets/gb4728-symbols-kit/`；另自补 `test-point` / `nc`，删掉 `jack` / `dc-jack` → **清单 18 个** |
 | 资产评估（覆盖度/技术质量/集成风险） | ✅ `docs/01-assets-gb4728.md` |
 | 前后端架构（**完全复用 breadspice**） | ✅ `docs/02-architecture.md` |
 | 编辑模型与交互 | ✅ `docs/03-editor-model.md` |
-| 符号 → 运行时清单（`symbols.json`） | ✅ 设计已定，脚本待写 `docs/04-symbol-pipeline.md` |
+| 符号 → 运行时清单（`symbols.json`） | ✅ `tools/gen-symbols.py` + `--check` 防漂移 `docs/04-symbol-pipeline.md` |
 | 网表输出契约（对接 `rustomp-import`） | ✅ `docs/05-netlist-contract.md` |
 | 分阶段计划 | ✅ `docs/06-roadmap.md` |
+| 仿真能力对照（breadspice vs 本设计器） | ✅ `docs/07-sim-comparison.md` |
 | **D0 骨架** | ✅ 完成：符号清单 / 画布 + 模态编辑 / 后端 RPC / **网表导出 + lint** / 预览截图 |
-| **D1 起步** | ✅ **仿真**（ngspice 瞬态 + 波形图 + **THD**）、**生成代码**（调 `rustomp-import`）、悬空引脚红圈、符号补 `test-point`/`nc`、**2×2 格命中区 + hover 高亮**、双击开属性、**导线自动合并/接续**（删除即删整段）、3 个模板、位号不随旋转 |
+| **D1** | ✅ 大部分：**仿真**（`tran`+`ac`、rawfile、取消、FFT）、**生成代码**（调 `rustomp-import`）、悬空引脚红圈、**2×2 格命中区 + hover 高亮**、双击开属性、**导线自动合并/接续**（删除即删整段）、3 个模板、位号不随旋转、数值=数字框+单位下拉、**顶栏保存/导出/导入 + 启动自动恢复**、**IN=波形发生器 / OUT 与测试点=示波器** |
+| `dc` 扫描 UI 入口、`op` 工作点 | ⏸ 后端已备，UI 未开放（用户要求） |
+| 框选/多选、层次图（`.subckt`）、Tauri 桌面版、1:1 打印 | ⬜ 未做 |
 
 ---
 
@@ -146,9 +155,9 @@ Q1 c b 0 BC549C
 2. 可调元件必须显式声明（`param`，不从 `250k + 250k` 反推电位器）；
 3. 器件型号必须落在 rustomp 的**闭集表**里。
 
-**开关是例外**：它不生成任何电路元件，而是把同一张图导出成 **2ⁿ 份完整电路**
-（n = 开关数），由插件交互层按参数选择分支 + 交叉淡化。
-开关不进 DSP，理由是"拓扑切换"在电路层实现既不稳也难验证（决策 D-005）。
+**开关不进网表**（D-007 铁律）：设计器**不提供开关符号**，也**不做分支导出** —— 始终只导出
+**单份** `.cir`。插件里"切换不同声音"由插件层持有多个 `Circuit` 并交叉淡化，与本项目解耦。
+（早期 D-005 曾设想"同一张图导出 2ⁿ 份网表"，已被 D-007 取代。）
 
 ---
 
@@ -156,12 +165,15 @@ Q1 c b 0 BC549C
 
 | 文档 | 内容 |
 |---|---|
+| **`DEVLOG.md`** | **开发日志**：今天每一步做了什么、为什么、踩了什么坑（过程） |
+| `docs/00-decisions.md` | **决策账本（ADR）** D-001…D-018（结论，**先读这个**） |
 | `docs/01-assets-gb4728.md` | **核心资产评估**：清单、技术质量、覆盖度、缺口、风险 |
 | `docs/02-architecture.md` | 前后端架构（复用 breadspice）、复用清单、技术选型理由 |
 | `docs/03-editor-model.md` | 文档模型、栅格吸附、导线/节点、撤销重做、快捷键 |
 | `docs/04-symbol-pipeline.md` | 符号 → `symbols.json` 的 schema、生成与校验 |
 | `docs/05-netlist-contract.md` | 网表输出契约、命名规则、与 `rustomp-import` 的对接 |
 | `docs/06-roadmap.md` | D0–D4 分阶段计划与验收标准 |
+| `docs/07-sim-comparison.md` | 仿真能力对照：breadspice 实现细节 vs 本设计器、差异与取舍 |
 | `assets/gb4728-symbols-kit/README.md` | 符号绘制手册（原作者手笔，18 KB，务必读） |
 
 ---

@@ -50,6 +50,12 @@ export interface SimResult {
   log: string;
 }
 
+export interface SaveResult {
+  path: string;
+  file: string;
+  bytes: number;
+}
+
 export const backend = {
   ping: () => rpc<{ pong: boolean; version: string }>("designer.ping", {}),
   netlist: (doc: unknown) => rpc<NetlistResult>("designer.netlist", doc),
@@ -58,4 +64,6 @@ export const backend = {
     rpc<SimResult>("designer.simulate", { doc, ...opts }),
   /** 调 rustomp-import 把网表生成 Rust 电路（需要 RUSTOMP_ROOT 或同级 rustomp） */
   codegen: (doc: unknown) => rpc<CodegenResult>("designer.codegen", doc),
+  /** 保存到服务端缓存（前端随后清空撤销/重做，与 breadspice 的"保存布局"一致） */
+  save: (name: string, doc: unknown) => rpc<SaveResult>("designer.save", { name, doc }),
 };

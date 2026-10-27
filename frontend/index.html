@@ -12,8 +12,12 @@
       <span class="sep"></span>
       <button id="btnUndo" title="撤销（⌘/Ctrl+Z）">↶</button>
       <button id="btnRedo" title="重做（⇧⌘/Ctrl+Z）">↷</button>
+      <input id="docName" type="text" value="未命名电路" title="布局名字（保存/导出都用它）" />
       <button id="btnNew" title="新建">新建</button>
-      <button id="btnSave" title="保存 .design.json">保存</button>
+      <button id="btnSave" title="保存到服务端缓存（并清空撤销/重做）">保存</button>
+      <button id="btnExport" title="导出 .design.json 到本地">导出布局</button>
+      <button id="btnImport" title="从本地 .design.json 导入">导入布局</button>
+      <input id="importFile" type="file" accept=".json,application/json" hidden />
       <button id="btnSim" title="跑 ngspice 瞬态，看波形">仿真</button>
       <button id="btnPreview" title="预览 = 生成可保存的截图">预览</button>
       <button id="btnNetlist" title="生成网表并下载 .cir">生成网表</button>

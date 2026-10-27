@@ -15,3 +15,6 @@ vendor/breadspice/
 # 编辑器/系统
 .DS_Store
 *.swp
+
+# 服务端缓存的设计稿
+/.cache/

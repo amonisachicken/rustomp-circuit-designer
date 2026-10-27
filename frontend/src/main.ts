@@ -509,21 +509,75 @@ function redo(): void {
 
 // ---------------------------------------------------------------- 工具栏
 
-$("#btnUndo").addEventListener("click", undo);
-$("#btnRedo").addEventListener("click", redo);
-$("#btnNew").addEventListener("click", () => {
-  hooks.commit();
-  Object.assign(doc, emptyDoc());
-  repaint();
+// ---------------------------------------------------------------- 命名 / 保存 / 导入导出
+
+const nameInput = $<HTMLInputElement>("#docName");
+nameInput.addEventListener("input", () => {
+  doc.name = nameInput.value.trim() || "未命名电路";
 });
-$("#btnSave").addEventListener("click", () => {
+
+/** 保存：写服务端缓存 + **清空撤销/重做**（同 breadspice 的"保存布局"） */
+$("#btnSave").addEventListener("click", async () => {
+  try {
+    const r = await backend.save(doc.name, doc);
+    past.length = 0;
+    future.length = 0;
+    $("#hint").textContent = `已保存到服务端：${r.file}（${(r.bytes / 1024).toFixed(1)} KB，撤销记录已清空）`;
+  } catch (e) {
+    $("#hint").textContent = `保存失败：${e instanceof Error ? e.message : String(e)}`;
+  }
+});
+
+/** 导出布局：下载 .design.json */
+$("#btnExport").addEventListener("click", () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" }));
   const a = document.createElement("a");
   a.href = url;
   a.download = `${doc.name}.design.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+  $("#hint").textContent = `已导出 ${doc.name}.design.json`;
 });
+
+/** 导入布局：读本地文件 → 替换文档 → 清空历史（名字取自文件名） */
+$("#btnImport").addEventListener("click", () => $<HTMLInputElement>("#importFile").click());
+$<HTMLInputElement>("#importFile").addEventListener("change", async (ev) => {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  try {
+    const loaded = JSON.parse(await file.text()) as Doc;
+    if (!Array.isArray(loaded.parts) || !Array.isArray(loaded.wires)) {
+      throw new Error("不是有效的设计文件（缺少 parts / wires）");
+    }
+    Object.assign(doc, loaded);
+    doc.wires = normalizeWires(doc.wires);
+    doc.name = loaded.name || file.name.replace(/\.design\.json$|\.json$/i, "") || "未命名电路";
+    doc.nextId = Math.max(doc.nextId ?? 1, doc.parts.length + doc.wires.length + 1);
+    past.length = 0;
+    future.length = 0;
+    nameInput.value = doc.name;
+    selectedId = null;
+    $("#props").hidden = true;
+    view = fitView(doc, table, { w: canvas.clientWidth || 1200, h: canvas.clientHeight || 800 });
+    hooks.setMode({ kind: "view" });
+    repaint();
+    $("#hint").textContent = `已导入 ${file.name}（${doc.parts.length} 元件 / ${doc.wires.length} 导线）`;
+  } catch (e) {
+    $("#hint").textContent = `导入失败：${e instanceof Error ? e.message : String(e)}`;
+  }
+});
+
+$("#btnUndo").addEventListener("click", undo);
+$("#btnRedo").addEventListener("click", redo);
+$("#btnNew").addEventListener("click", () => {
+  hooks.commit();
+  Object.assign(doc, emptyDoc());
+  nameInput.value = doc.name;
+  repaint();
+});
+
 $("#btnPreview").addEventListener("click", () => void previewPng());
 
 $("#btnNetlist").addEventListener("click", async () => {
@@ -705,6 +759,7 @@ async function main(): Promise<void> {
     commitPlace(mode as Extract<Mode, { kind: "place" }>, hooks);
   }
   hooks.setMode({ kind: "view" });
+  nameInput.value = doc.name;
   view = fitView(doc, table, { w: canvas.clientWidth || 1200, h: canvas.clientHeight || 800 });
   repaint();
   hooks.status("r 电阻 · c 电容 · 空格 元件库 · w 画线 · q 删除 · m 移动 · d 复制 · esc 退出 · 中键平移/滚轮缩放");
@@ -810,6 +865,19 @@ async function main(): Promise<void> {
     const pinIn = table.symbols["node-in"]!.pins[0]!.at;
     const pinOut = table.symbols["node-out"]!.pins[0]!.at;
     results.push(`in-mirrored=${pinIn.x > 0 && pinOut.x < 0}`);
+
+    // ⑮ 命名框同步 + 保存（服务端缓存）后清空撤销/重做
+    const nameEl = $<HTMLInputElement>("#docName");
+    results.push(`docname-sync=${nameEl.value === doc.name}`);
+    results.push(
+      `toolbar-buttons=${!!$("#btnImport") && !!$("#btnExport") && !!$("#btnSave") && !!$("#docName")}`,
+    );
+    // 制造一步历史，然后模拟保存成功后的清空
+    hooks.commit();
+    const hadHistory = past.length > 0;
+    past.length = 0;
+    future.length = 0;
+    results.push(`save-clears-history=${hadHistory && past.length === 0 && future.length === 0}`);
 
     const ok = results.every((x) => x.endsWith("=true"));
     $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;

@@ -12,6 +12,7 @@ use std::{path::PathBuf, sync::Arc};
 mod codegen;
 mod netlist;
 mod sim;
+mod store;
 use tower_http::cors::CorsLayer;
 
 #[derive(Clone)]
@@ -110,6 +111,20 @@ async fn rpc(State(app): State<Arc<App>>, Json(req): Json<RpcRequest>) -> Json<R
                 return err(format!("图纸有 {} 个 error，先修好：{}", errors.len(), errors[0].msg));
             }
             match codegen::generate(&app.root, &g.cir) {
+                Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+                Err(e) => err(e),
+            }
+        }
+        "designer.save" => {
+            // params = { name, doc }
+            let name = req
+                .params
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("未命名电路")
+                .to_string();
+            let doc = req.params.get("doc").cloned().unwrap_or(Value::Null);
+            match store::save(&app.root, &name, &doc) {
                 Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
                 Err(e) => err(e),
             }

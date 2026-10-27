@@ -120,6 +120,7 @@ rustomp-circuit-designer/
 |---|---|---|
 | `designer.symbols` | — | `SymbolManifest`（`symbols.json` 的运行时视图） |
 | `designer.branches` | `Document` | `{ branches: [{ index, combo, netlist }], index_json: String, warnings }` |
+| `designer.save` | `{ name, doc }` | `{ path, file, bytes }` —— 写服务端缓存（`$CD_DATA`，默认 `.cache/designs/`） |
 | `designer.netlist` | `Document`（可选 combo） | `{ netlist: String, notes: String[], warnings: LintWarning[] }` |
 | `designer.codegen` | `Document` + `CodegenOptions` | `{ code: String, unknowns: usize, notes: String[] }` |
 | `designer.lint` | `Document` | `LintWarning[]` |

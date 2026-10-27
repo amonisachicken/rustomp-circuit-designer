@@ -3,7 +3,7 @@
 // 全部用原生 SVG DOM（不引框架）。坐标系：1 单位 = 1 mm，视图变换只改 <g> 的 transform。
 
 import { GRID, toWorld, type Doc, type Part, type Vec } from "./model";
-import type { SymbolSpec, SymbolTable } from "./symbols";
+import type { SymText, SymbolSpec, SymbolTable } from "./symbols";
 
 const NS = "http://www.w3.org/2000/svg";
 export const el = <K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] =>
@@ -21,7 +21,7 @@ export interface RenderOpts {
   dangling?: { at: Vec; label: string }[];
   doc: Doc;
   table: SymbolTable;
-  art: (file: string) => { viewBox: string; inner: string } | undefined;
+  art: (file: string) => { viewBox: string; inner: string; texts: SymText[] } | undefined;
   view: View;
   selectedId?: string | null;
   /** 手持中的元件（放置/移动模式） */
@@ -143,7 +143,7 @@ export function render(root: SVGSVGElement, o: RenderOpts): void {
 function renderPart(
   part: Part,
   table: SymbolTable,
-  art: (file: string) => { viewBox: string; inner: string } | undefined,
+  art: (file: string) => { viewBox: string; inner: string; texts: SymText[] } | undefined,
   view: View,
   selected: boolean,
 ): SVGGElement {
@@ -213,6 +213,20 @@ function renderPart(
     v.textContent = part.value ?? part.model ?? "";
     labelG.append(v);
   }
+  // 符号自带的文字（引脚名 V+/V−、C/B/E、"In"/"Out"）：**解耦于图形旋转**，永远正向
+  for (const t of a?.texts ?? []) {
+    const w = toWorld({ x: t.x - sym.origin.x, y: t.y - sym.origin.y }, part);
+    const node = el("text");
+    node.setAttribute("x", `${w.x}`);
+    node.setAttribute("y", `${w.y}`);
+    node.setAttribute("font-size", `${t.size}`);
+    node.setAttribute("fill", t.fill);
+    node.setAttribute("text-anchor", t.anchor);
+    node.setAttribute("font-family", t.family);
+    node.textContent = t.content;
+    labelG.append(node);
+  }
+
   wrapper.append(labelG);
   return wrapper;
 }

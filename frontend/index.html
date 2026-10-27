@@ -52,6 +52,30 @@
       <p class="muted">符号依据 GB/T 4728 / idt IEC 60617，引脚按名绑定。</p>
     </dialog>
 
+    <dialog id="help">
+      <h2>快捷键</h2>
+      <table class="keys">
+        <tr><th>键</th><th>作用</th></tr>
+        <tr><td><kbd>esc</kbd></td><td>回到查看模式（手持元件时先放回原位）</td></tr>
+        <tr><td><kbd>r</kbd></td><td>放置电阻（连续放置，<kbd>esc</kbd> 退出）</td></tr>
+        <tr><td><kbd>c</kbd></td><td>放置电容</td></tr>
+        <tr><td><kbd>g</kbd></td><td>放置接地点</td></tr>
+        <tr><td><kbd>空格</kbd></td><td>元件库（全部 18 个符号）</td></tr>
+        <tr><td><kbd>w</kbd></td><td>画导线（只走上下左右；直段自动接续）</td></tr>
+        <tr><td><kbd>q</kbd></td><td>删除（点元件删元件；点导线删该段）</td></tr>
+        <tr><td><kbd>m</kbd></td><td>移动（点元件拿起，点画布放下，<kbd>esc</kbd> 放回）</td></tr>
+        <tr><td><kbd>d</kbd></td><td>复制（点元件 → 进入同类放置）</td></tr>
+        <tr><td><kbd>ctrl/⌘</kbd>+<kbd>r</kbd></td><td>顺时针旋转 90°（放置或手持时）</td></tr>
+        <tr><td><kbd>ctrl/⌘</kbd>+<kbd>e</kbd></td><td>左右镜像（放置或手持时）</td></tr>
+        <tr><td><kbd>⌘</kbd>/<kbd>ctrl</kbd>+<kbd>z</kbd></td><td>撤销（<kbd>⇧</kbd> 加它 = 重做）</td></tr>
+        <tr><td>中键拖拽 / 滚轮</td><td>平移 / 缩放视图</td></tr>
+        <tr><td>双击元件</td><td>属性面板（参考编号 / 别名 / 值 / 型号 / 旋转）</td></tr>
+        <tr><td><kbd>h</kbd></td><td>这个帮助</td></tr>
+      </table>
+      <p class="muted">命中区：以鼠标为心 2×2 格（5 mm），细线与小符号也点得中。</p>
+      <p style="text-align: right"><button id="helpClose">关闭</button></p>
+    </dialog>
+
     <dialog id="sim">
       <h2>仿真（ngspice 瞬态）</h2>
       <p class="simparams">

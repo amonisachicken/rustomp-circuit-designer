@@ -97,6 +97,15 @@ dialog .muted { color: #64748b; font-size: 11.5px; }
 .palette .meta { font-size: 10px; color: #94a3b8; }
 #previewImg img { max-width: 100%; border: 1px solid var(--line); }
 
+/* 帮助弹窗 */
+#help table.keys { border-collapse: collapse; font-size: 12px; }
+#help table.keys th, #help table.keys td { text-align: left; padding: 3px 10px 3px 0; vertical-align: top; }
+#help table.keys th { color: #64748b; font-weight: 600; font-size: 11px; }
+#help kbd {
+  font: 11px ui-monospace, Menlo, monospace; padding: 1px 5px; border: 1px solid var(--line);
+  border-bottom-width: 2px; border-radius: 4px; background: #fff;
+}
+
 /* 仿真弹窗 */
 #sim { width: min(900px, 92vw); }
 #sim .simparams { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; }

@@ -4,7 +4,7 @@
 import { backend, type NetlistResult, type SimResult } from "./backend";
 import { drawWaveform } from "./plot";
 import { emptyDoc, normalizeWires, snap, type Doc, type Part } from "./model";
-import { loadAllArt, loadArt, loadSymbols, type SymbolTable } from "./symbols";
+import { loadAllArt, loadArt, loadSymbols, type SymText, type SymbolTable } from "./symbols";
 import { fitView, hitTest, mmToScreen, render, screenToMm, type View } from "./render";
 import {
   cancel,
@@ -37,7 +37,7 @@ let mode: Mode = { kind: "view" };
 let view: View = { scale: 8, pan: { x: 120, y: 100 } };
 let selectedId: string | null = null;
 let hoverMm = { x: 0, y: 0 };
-const artMap = new Map<string, { viewBox: string; inner: string }>();
+const artMap = new Map<string, { viewBox: string; inner: string; texts: SymText[] }>();
 
 const canvas = $<SVGSVGElement>("#canvas");
 
@@ -203,6 +203,13 @@ window.addEventListener("keydown", (ev) => {
       return;
     case "c":
       enterPlace("capacitor", table, hooks, hoverMm);
+      return;
+    case "g":
+      enterPlace("earth", table, hooks, hoverMm);
+      return;
+    case "h":
+      ev.preventDefault();
+      $<HTMLDialogElement>("#help").showModal();
       return;
     case "w":
       hooks.setMode({ kind: "wire", from: null });
@@ -549,6 +556,8 @@ async function runSim(): Promise<void> {
   }
 }
 
+$("#helpClose").addEventListener("click", () => $<HTMLDialogElement>("#help").close());
+
 $("#btnCodegen").addEventListener("click", async () => {
   $("#hint").textContent = "生成代码中…";
   try {
@@ -725,6 +734,18 @@ async function main(): Promise<void> {
       results.push(`delete-span=${three.length === 1 && afterDelete.length === 0}`);
       void sym;
     }
+    // ⑨ 符号自带文字被抠出来（V+/V−、In/Out、C/B/E），且不再留在图里
+    const inArt = artMap.get(table.symbols["node-in"]!.file);
+    results.push(`texts-extracted=${(inArt?.texts.length ?? 0) > 0 && !inArt?.inner.includes("<text")}`);
+
+    // ⑩ g 放接地点 / h 打开帮助
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "g", bubbles: true }));
+    results.push(`key-g=${mode.kind === "place" && mode.symbol === "earth"}`);
+    mode = { kind: "view" };
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "h", bubbles: true }));
+    results.push(`key-h=${$<HTMLDialogElement>("#help").open}`);
+    $<HTMLDialogElement>("#help").close();
+
     const ok = results.every((x) => x.endsWith("=true"));
     $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;
   }

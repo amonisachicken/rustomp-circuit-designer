@@ -3,7 +3,7 @@
 
 import { backend, type NetlistResult, type SimResult } from "./backend";
 import { drawWaveform } from "./plot";
-import { emptyDoc, snap, type Doc, type Part } from "./model";
+import { emptyDoc, normalizeWires, snap, type Doc, type Part } from "./model";
 import { loadAllArt, loadArt, loadSymbols, type SymbolTable } from "./symbols";
 import { fitView, hitTest, mmToScreen, render, screenToMm, type View } from "./render";
 import {
@@ -301,12 +301,19 @@ canvas.addEventListener("pointerdown", (ev) => {
         hooks.setMode({ ...mode, from: p });
       } else {
         const next = commitWire(mode.from, p, hooks);
+        // 合并重合部分 + 接续直导线（docs/03 §7.5）
+        const before = doc.wires.length;
+        doc.wires = normalizeWires(doc.wires);
+        if (doc.wires.length !== before) repaint();
         hooks.setMode({ ...mode, from: next });
       }
       return;
     }
     case "delete":
       deleteAt(doc, partId, wireId, hooks);
+      // 删除一段后，同一行上原本被它间接连着的线段不该再合并 —— 归一化只是收尾
+      doc.wires = normalizeWires(doc.wires);
+      repaint();
       return;
     case "copy": {
       if (!partId) return;
@@ -625,6 +632,7 @@ async function loadExample(name: string): Promise<boolean> {
     if (!res.ok) throw new Error(String(res.status));
     const text = await res.text();
     Object.assign(doc, JSON.parse(text) as Doc);
+    doc.wires = normalizeWires(doc.wires);
     doc.nextId = Math.max(doc.nextId ?? 1, doc.parts.length + doc.wires.length + 1);
     return true;
   } catch (e) {
@@ -685,6 +693,36 @@ async function main(): Promise<void> {
       canvas.dispatchEvent(new PointerEvent("pointerdown", opt));
       const props = document.querySelector<HTMLElement>("#props");
       results.push(`dblclick-props=${!!props && !props.hidden && !!props.querySelector("#p-ref")}`);
+
+      // ⑤ 自动接续直导线：(0,0)-(10,0) + (10,0)-(20,0) → 一条
+      const join = normalizeWires([
+        { id: "wa", points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+        { id: "wb", points: [{ x: 10, y: 0 }, { x: 20, y: 0 }] },
+      ]);
+      results.push(`join=${join.length === 1 && join[0]!.points[1].x === 20}`);
+
+      // ⑥ 合并重合部分：(0,0)-(20,0) + (5,0)-(30,0) → (0,0)-(30,0)
+      const overlap = normalizeWires([
+        { id: "wc", points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+        { id: "wd", points: [{ x: 5, y: 0 }, { x: 30, y: 0 }] },
+      ]);
+      results.push(`merge=${overlap.length === 1 && overlap[0]!.points[1].x === 30}`);
+
+      // ⑦ 不同行不合并（十字交叉保留两根）
+      const cross = normalizeWires([
+        { id: "we", points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+        { id: "wf", points: [{ x: 10, y: -10 }, { x: 10, y: 10 }] },
+      ]);
+      results.push(`cross=${cross.length === 2}`);
+
+      // ⑧ 删除即"两锚点之间"：三段接成一条后删掉 → 0 段
+      const three = normalizeWires([
+        { id: "wg", points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+        { id: "wh", points: [{ x: 10, y: 0 }, { x: 20, y: 0 }] },
+        { id: "wi", points: [{ x: 20, y: 0 }, { x: 30, y: 0 }] },
+      ]);
+      const afterDelete = three.filter((w) => w.id !== three[0]!.id);
+      results.push(`delete-span=${three.length === 1 && afterDelete.length === 0}`);
       void sym;
     }
     const ok = results.every((x) => x.endsWith("=true"));

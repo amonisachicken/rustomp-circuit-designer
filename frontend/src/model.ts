@@ -70,6 +70,73 @@ export function toWorld(local: Vec, part: Pick<Part, "at" | "rot" | "mirror">): 
   return { x: c * x - s * y + part.at.x, y: s * x + c * y + part.at.y };
 }
 
+/**
+ * 导线归一化（自动合并重合部分 + 自动接续直导线）。
+ *
+ * 规则：**同一条直线上的线段**（水平 y 相同 / 垂直 x 相同）如果重叠或首尾相接，
+ * 合并成一条最长的线段（保留最早那条的 id，撤销/选中都稳定）。
+ * 交叉（十字）不合并 —— 那仍然是两根线，连通性由后端算。
+ *
+ * 副作用：用户在 `w` 模式里连点画出的折线，直的几段会自动变成一条；
+ * 「删除」于是就是"删掉这两个锚点之间的整段"。
+ */
+export function normalizeWires(wires: Wire[]): Wire[] {
+  const EPS = 1e-6;
+  type Seg = { horiz: boolean; coord: number; lo: number; hi: number; id: string };
+  const segs: Seg[] = [];
+
+  for (const w of wires) {
+    const [a, b] = w.points;
+    if (Math.abs(a.y - b.y) < EPS) {
+      segs.push({ horiz: true, coord: a.y, lo: Math.min(a.x, b.x), hi: Math.max(a.x, b.x), id: w.id });
+    } else if (Math.abs(a.x - b.x) < EPS) {
+      segs.push({ horiz: false, coord: a.x, lo: Math.min(a.y, b.y), hi: Math.max(a.y, b.y), id: w.id });
+    } else {
+      // 斜线不该存在（D-009），原样保留，让 lint 去报
+      segs.push({ horiz: true, coord: Number.NaN, lo: 0, hi: 0, id: w.id });
+    }
+  }
+
+  const groups = new Map<string, Seg[]>();
+  for (const s of segs) {
+    if (Number.isNaN(s.coord)) continue;
+    const key = `${s.horiz ? "h" : "v"}:${s.coord.toFixed(4)}`;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(s);
+  }
+
+  const merged: Wire[] = [];
+  for (const list of groups.values()) {
+    list.sort((p, q) => p.lo - q.lo || p.hi - q.hi);
+    let cur = { ...list[0]! };
+    for (const s of list.slice(1)) {
+      if (s.lo <= cur.hi + EPS) {
+        cur.hi = Math.max(cur.hi, s.hi); // 重叠或首尾相接 → 接续
+      } else {
+        merged.push(toWire(cur));
+        cur = { ...s };
+      }
+    }
+    merged.push(toWire(cur));
+  }
+
+  // 斜线和非共线的一律原样保留（保持顺序稳定：按 id 字典序排序便于 diff）
+  for (const w of wires) {
+    const [a, b] = w.points;
+    const axis = Math.abs(a.y - b.y) < EPS || Math.abs(a.x - b.x) < EPS;
+    if (!axis) merged.push(w);
+  }
+
+  return merged
+    .filter((w) => Math.abs(w.points[0].x - w.points[1].x) > EPS || Math.abs(w.points[0].y - w.points[1].y) > EPS)
+    .sort((p, q) => p.id.localeCompare(q.id, "en", { numeric: true }));
+}
+
+function toWire(s: { horiz: boolean; coord: number; lo: number; hi: number; id: string }): Wire {
+  return s.horiz
+    ? { id: s.id, points: [{ x: s.lo, y: s.coord }, { x: s.hi, y: s.coord }] }
+    : { id: s.id, points: [{ x: s.coord, y: s.lo }, { x: s.coord, y: s.hi }] };
+}
+
 /** 参考编号前缀 → 下一个可用编号（R1、R2…；按现有最大号 +1，不填补空洞） */
 export function nextRef(doc: Doc, prefix: string): string {
   let max = 0;

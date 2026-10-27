@@ -41,7 +41,7 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 **稳态衰减实测 0.157**，与理论 `1/√(1+(f/fc)²)` 一致；10 ms 窗口 1505 点。
 
 > 调试开关：`?load=lowpass|noninverting|common-emitter|diode-clip` 载入示例/模板、
-> `?sim=1` 直接开仿真、`?selftest=1` 冒烟（命中区/双击属性）。
+> `?sim=1` 直接开仿真、`?selftest=1` 冒烟（命中区/双击属性/导线归一化）。
 
 四个电路的实测（0.2 V / 1 kHz / 20 ms）：
 
@@ -66,7 +66,7 @@ cd backend && cargo test                       # 9 个测试（含网表黄金�
 | 网表输出契约（对接 `rustomp-import`） | ✅ `docs/05-netlist-contract.md` |
 | 分阶段计划 | ✅ `docs/06-roadmap.md` |
 | **D0 骨架** | ✅ 完成：符号清单 / 画布 + 模态编辑 / 后端 RPC / **网表导出 + lint** / 预览截图 |
-| **D1 起步** | ✅ **仿真**（ngspice 瞬态 + 波形图 + **THD**）、**生成代码**（调 `rustomp-import`）、悬空引脚红圈、符号补 `test-point`/`nc`、**2×2 格命中区 + hover 高亮**、双击开属性、3 个模板、位号不随旋转 |
+| **D1 起步** | ✅ **仿真**（ngspice 瞬态 + 波形图 + **THD**）、**生成代码**（调 `rustomp-import`）、悬空引脚红圈、符号补 `test-point`/`nc`、**2×2 格命中区 + hover 高亮**、双击开属性、**导线自动合并/接续**（删除即删整段）、3 个模板、位号不随旋转 |
 
 ---
 

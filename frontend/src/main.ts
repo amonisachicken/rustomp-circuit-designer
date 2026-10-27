@@ -1,8 +1,8 @@
 // 入口：装配画布、键盘/鼠标、元件库、属性面板、撤销重做、预览截图。
 // 交互规则见 docs/03 §3（D-009：模态编辑，无拖放）。
 
-import { backend, type NetlistResult, type SimResult } from "./backend";
-import { drawWaveform } from "./plot";
+import { backend, type AnalysisKind, type NetlistResult, type SimParams, type SimResult } from "./backend";
+import { drawTraces } from "./plot";
 import {
   VALUE_UNITS,
   UNIT_LABEL,
@@ -302,7 +302,13 @@ canvas.addEventListener("pointerdown", (ev) => {
   if (partId && lastClick.id === partId && now - lastClick.t < 400) {
     lastClick = { id: null, t: 0 };
     selectedId = partId;
-    selectPart(partId, true);
+    const part = doc.parts.find((p) => p.id === partId);
+    // OUT 元件兼作示波器、测试点兼作电压表（双击即打开对应"仪表"）
+    if (part?.symbol === "node-out" || part?.symbol === "test-point") {
+      void openInstrument(part);
+    } else {
+      selectPart(partId, true);
+    }
     repaint();
     ev.preventDefault();
     return;
@@ -601,47 +607,188 @@ $("#btnNetlist").addEventListener("click", async () => {
   $("#hint").textContent = `已导出 ${doc.name}.cir（${netlist.lints.length} 条提示）`;
 });
 
-// ---------------------------------------------------------------- 仿真
+// ---------------------------------------------------------------- 仿真（复用 breadspice 的核心）
+
+/** 上一次仿真结果（示波器 / 电压表都读它） */
+let lastSim: SimResult | null = null;
+
+/** 双击 OUT / 测试点：网络表可能还没拉到，先补一次再开仪表 */
+async function openInstrument(part: Part): Promise<void> {
+  if (!netlist) await refreshNetlist();
+  const net = netOfPin(part.ref, part.symbol === "node-out" ? "OUT" : "TP");
+  if (!net) {
+    $("#hint").textContent = `${part.ref} 还没接到电路上（找不到它的网络）`;
+    return;
+  }
+  if (part.symbol === "node-out") openScope(net);
+  else openMeter(net, part.ref);
+}
+
+/** 某个元件的某个引脚落在哪个网络上（用后端返回的 nets 反查） */
+function netOfPin(ref: string, pin: string): string | null {
+  const hit = netlist?.nets.find((n) => n.pins.includes(`${ref}.${pin}`));
+  return hit?.name ?? null;
+}
+
+/** 自动探针：所有测试点（电压表用）；端口由后端自己加 */
+function testPointNets(): string[] {
+  const out: string[] = [];
+  for (const p of doc.parts) {
+    if (p.symbol !== "test-point") continue;
+    const n = netOfPin(p.ref, "TP");
+    if (n && !out.includes(n)) out.push(n);
+  }
+  return out;
+}
+
+function readSimParams(): { analysis: AnalysisKind; params: SimParams } {
+  const analysis = $<HTMLSelectElement>("#simAnalysis").value as AnalysisKind;
+  const num = (id: string, dflt: number): number => Number($<HTMLInputElement>(id).value) || dflt;
+  if (analysis === "ac") {
+    return {
+      analysis,
+      params: {
+        sweep: ($<HTMLSelectElement>("#simAcSweep").value as "dec" | "oct" | "lin") ?? "dec",
+        points: num("#simAcPoints", 100),
+        f_start: num("#simAcStart", 10),
+        f_stop: num("#simAcStop", 100000),
+      },
+    };
+  }
+  return {
+    analysis: "tran",
+    params: {
+      amp: num("#simAmp", 0.2),
+      freq: num("#simFreq", 1000),
+      step: num("#simStep", 1e-5),
+      start: num("#simStart", 0),
+      duration: num("#simDuration", 0.02),
+    },
+  };
+}
 
 $("#btnSim").addEventListener("click", () => {
   const dlg = $<HTMLDialogElement>("#sim");
   $("#simStatus").textContent = "";
   $("#simLog").textContent = "";
+  syncSimFields();
   dlg.showModal();
   void runSim();
 });
 $("#simRun").addEventListener("click", () => void runSim());
+$("#simStop").addEventListener("click", () => void backend.stop());
 $("#simClose").addEventListener("click", () => $<HTMLDialogElement>("#sim").close());
+/** 按分析类型显示对应的参数组 */
+function syncSimFields(): void {
+  const a = $<HTMLSelectElement>("#simAnalysis").value;
+  $<HTMLElement>("#simTranFields").hidden = a !== "tran";
+  $<HTMLElement>("#simAcFields").hidden = a !== "ac";
+}
+$("#simAnalysis").addEventListener("change", syncSimFields);
+syncSimFields();
 
 async function runSim(): Promise<void> {
   const status = $("#simStatus");
-  const amp = Number($<HTMLInputElement>("#simAmp").value) || 0.2;
-  const freq = Number($<HTMLInputElement>("#simFreq").value) || 1000;
-  const stop = Number($<HTMLInputElement>("#simStop").value) || 10;
-  status.textContent = "运行中…";
+  const { analysis, params } = readSimParams();
+  status.textContent = "运行中…（可点停止）";
   try {
-    const r: SimResult = await backend.simulate(doc, { amp, freq, stop_ms: stop });
-    drawWaveform($<SVGSVGElement>("#simPlot"), {
-      t: r.t,
-      vin: r.vin,
-      vout: r.vout,
-      labelIn: r.ports.in ?? "in",
-      labelOut: r.ports.out ?? "out",
+    const r = await backend.simulate(doc, analysis, params, testPointNets());
+    lastSim = r;
+    drawTraces($<SVGSVGElement>("#simPlot"), r.traces, {
+      logX: analysis === "ac",
+      db: analysis === "ac",
+      xLabel: analysis === "ac" ? "频率 Hz" : "时间 s",
+      yLabel: analysis === "ac" ? "幅度 dB" : "电压 V",
     });
-    // 说清"INPUT/OUTPUT 封装"的语义：源注入 in 网、探针看 out 网（仅仿真，不进交付网表）
-    const hasSrc = doc.parts.some((p) => p.symbol === "voltage-source");
+    const ports = netlist?.ports ?? { in: null, out: null };
     $("#simSemantics").textContent =
-      `源：${hasSrc ? "图纸自带的 voltage-source" : `自动注入 SIN(0 ${amp} V, ${freq} Hz) → ${r.ports.in ?? "?"}`}` +
-      ` · 探针：v(${r.ports.in ?? "?"}) / v(${r.ports.out ?? "?"})` +
-      `（只用于仿真，不写进交付的 .cir）`;
-    const maxOut = r.vout.length ? Math.max(...r.vout.map(Math.abs)) : 0;
+      analysis === "ac"
+        ? `AC 扫描：激励 v(${ports.in ?? "?"}) = 1 V RMS（IN 元件兼作波形发生器）· 探针 ${r.traces.map((t) => t.name).join(" / ")}`
+        : `瞬态：激励 SIN(${params.amp} V, ${params.freq} Hz) @ v(${ports.in ?? "?"}) · 探针 ${r.traces.map((t) => t.name).join(" / ")}`;
     const thd = r.thd === null ? "—" : `${(r.thd * 100).toFixed(2)}%`;
     status.textContent =
-      `${r.t.length} 点 · ${stop} ms · ${freq} Hz · |out|max = ${maxOut.toFixed(3)} V · THD = ${thd}`;
+      analysis === "tran"
+        ? `${r.traces[0]?.x.length ?? 0} 点 · ${(params.duration ?? 0) * 1000} ms · THD = ${thd}`
+        : `${r.traces[0]?.x.length ?? 0} 点 · ${params.f_start}–${params.f_stop} Hz`;
     $("#simLog").textContent = r.log || "（无输出）";
   } catch (e) {
     status.textContent = `✗ ${e instanceof Error ? e.message : String(e)}`;
     $("#simLog").textContent = String(e);
+  }
+}
+
+// ---------------------------------------------------------------- 示波器（OUT 元件）/ 电压表（测试点）
+
+/** 双击 OUT 元件 → 示波器：看该网络（+ 输入做对照）的波形 */
+function openScope(net: string): void {
+  const dlg = $<HTMLDialogElement>("#scope");
+  if (!lastSim) {
+    $("#scopeStatus").textContent = "还没有仿真结果 —— 先点顶栏「仿真」";
+    drawTraces($<SVGSVGElement>("#scopePlot"), []);
+  } else {
+    const want = new Set([`v(${net.toLowerCase()})`]);
+    const vin = netlist?.ports.in ? `v(${netlist.ports.in.toLowerCase()})` : null;
+    if (vin) want.add(vin);
+    const traces = lastSim.traces.filter((t) => want.has(t.name));
+    drawTraces($<SVGSVGElement>("#scopePlot"), traces, {
+      logX: lastSim.analysis === "ac",
+      db: lastSim.analysis === "ac",
+      xLabel: lastSim.analysis === "ac" ? "频率 Hz" : "时间 s",
+      yLabel: lastSim.analysis === "ac" ? "幅度 dB" : "电压 V",
+    });
+    $("#scopeStatus").textContent = `示波器：v(${net})（${lastSim.analysis} 分析）`;
+  }
+  $<HTMLButtonElement>("#scopeFft").dataset["net"] = net;
+  dlg.showModal();
+}
+
+/** 双击测试点 → 电压表：显示该点**到地**的电压 */
+function openMeter(net: string, ref: string): void {
+  const dlg = $<HTMLDialogElement>("#meter");
+  $("#meterTitle").textContent = `电压表 · ${ref} → 地（v(${net})）`;
+  if (!lastSim) {
+    $("#meterValue").textContent = "—";
+    $("#meterHint").textContent = "还没有仿真结果 —— 先点顶栏「仿真」";
+  } else {
+    const t = lastSim.traces.find((tr) => tr.name === `v(${net.toLowerCase()})`);
+    if (!t || !t.y.length) {
+      $("#meterValue").textContent = "—";
+      $("#meterHint").textContent = "这次仿真没有探到这个点（确认它已接进电路）";
+    } else if (lastSim.analysis === "ac") {
+      const f1k = t.x.findIndex((f) => f >= 1000);
+      const m = t.y[Math.max(f1k, 0)] ?? t.y[0]!;
+      $("#meterValue").textContent = `${(20 * Math.log10(Math.max(m, 1e-12))).toFixed(2)} dB`;
+      $("#meterHint").textContent = "AC 分析：显示 1 kHz 处的幅度（相对 1 V RMS）";
+    } else {
+      const last = t.y[t.y.length - 1]!;
+      const rms = Math.sqrt(t.y.reduce((s, v) => s + v * v, 0) / t.y.length);
+      const peak = t.y.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+      $("#meterValue").textContent = `${last.toFixed(4)} V`;
+      $("#meterHint").textContent = `瞬态末值 · RMS ${rms.toFixed(4)} V · 峰值 ${peak.toFixed(4)} V · 点数 ${t.y.length}`;
+    }
+  }
+  dlg.showModal();
+}
+$("#scopeClose").addEventListener("click", () => $<HTMLDialogElement>("#scope").close());
+$("#meterClose").addEventListener("click", () => $<HTMLDialogElement>("#meter").close());
+$("#scopeFft").addEventListener("click", () => void runFft());
+
+async function runFft(): Promise<void> {
+  const net = $<HTMLButtonElement>("#scopeFft").dataset["net"] ?? "";
+  if (!lastSim) return;
+  const t = lastSim.traces.find((tr) => tr.name === `v(${net.toLowerCase()})`);
+  if (!t) return;
+  try {
+    const { f, db } = await backend.fft(t.x, t.y, 20000);
+    drawTraces($<SVGSVGElement>("#scopePlot"), [{ name: `FFT v(${net})`, x: f, y: db.map((d) => 10 ** (d / 20)) }], {
+      logX: true,
+      db: true,
+      xLabel: "频率 Hz",
+      yLabel: "幅度 dB",
+    });
+    $("#scopeStatus").textContent = `频谱：v(${net})（对数频率轴，1 V RMS = 0 dB）`;
+  } catch (e) {
+    $("#scopeStatus").textContent = `FFT 失败：${e instanceof Error ? e.message : String(e)}`;
   }
 }
 
@@ -780,6 +927,7 @@ async function main(): Promise<void> {
   }
   hooks.setMode({ kind: "view" });
   nameInput.value = doc.name;
+  syncSimFields();
   view = fitView(doc, table, { w: canvas.clientWidth || 1200, h: canvas.clientHeight || 800 });
   repaint();
   hooks.status("r 电阻 · c 电容 · 空格 元件库 · w 画线 · q 删除 · m 移动 · d 复制 · esc 退出 · 中键平移/滚轮缩放");
@@ -898,6 +1046,35 @@ async function main(): Promise<void> {
     past.length = 0;
     future.length = 0;
     results.push(`save-clears-history=${hadHistory && past.length === 0 && future.length === 0}`);
+
+    // ⑯ 仿真 → 示波器（OUT）/ 电压表（测试点）链路
+    let simOk: string | boolean = false;
+    try {
+      await refreshNetlist();
+      const r = await backend.simulate(
+        doc,
+        "tran",
+        { amp: 0.2, freq: 1000, step: 1e-5, start: 0, duration: 0.02 },
+        testPointNets(),
+      );
+      lastSim = r;
+      const hasOut = r.traces.some((t) => t.name === "v(out)");
+      const scopePart = doc.parts.find((p) => p.symbol === "node-out");
+      const scopeNet = scopePart ? netOfPin(scopePart.ref, "OUT") : null;
+      if (scopeNet) openScope(scopeNet);
+      const scopeTraces = document.querySelectorAll("#scopePlot path.trace").length;
+      $<HTMLDialogElement>("#scope").close();
+      const tp = doc.parts.find((p) => p.symbol === "test-point");
+      const tpNet = tp ? netOfPin(tp.ref, "TP") : null;
+      if (tp && tpNet) openMeter(tpNet, tp.ref);
+      const meterText = $("#meterValue").textContent ?? "";
+      const meterOk = /V$/.test(meterText.trim());
+      $<HTMLDialogElement>("#meter").close();
+      simOk = hasOut && scopeTraces >= 1 && meterOk ? true : `out=${hasOut} traces=${scopeTraces} meter="${meterText}" tp=${tp?.ref},${tpNet}`;
+    } catch (e) {
+      simOk = e instanceof Error ? e.message : String(e);
+    }
+    results.push(`sim-scope-meter=${simOk}`);
 
     const ok = results.every((x) => x.endsWith("=true"));
     $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;

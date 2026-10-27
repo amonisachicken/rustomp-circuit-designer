@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use std::{path::PathBuf, sync::Arc};
 
 mod codegen;
+mod fft;
 mod netlist;
 mod sim;
 mod store;
@@ -88,6 +89,27 @@ async fn rpc(State(app): State<Arc<App>>, Json(req): Json<RpcRequest>) -> Json<R
             };
             match sim::run(&req, &table) {
                 Ok(r) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+                Err(e) => err(e),
+            }
+        }
+        "designer.stop" => ok(json!(sim::stop_running())),
+        "designer.fft" => {
+            // params = { x: [...], y: [...], max_freq }
+            let x: Vec<f64> = req
+                .params
+                .get("x")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|v| v.as_f64()).collect())
+                .unwrap_or_default();
+            let y: Vec<f64> = req
+                .params
+                .get("y")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|v| v.as_f64()).collect())
+                .unwrap_or_default();
+            let max_freq = req.params.get("max_freq").and_then(|v| v.as_f64()).unwrap_or(20_000.0);
+            match fft::fft_spectrum(&x, &y, max_freq) {
+                Ok((fx, fy)) => ok(json!({ "f": fx, "db": fy })),
                 Err(e) => err(e),
             }
         }

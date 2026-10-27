@@ -38,15 +38,34 @@ export interface CodegenResult {
   ports: string[];
 }
 
+export type AnalysisKind = "op" | "dc" | "ac" | "tran";
+
+export interface SimParams {
+  amp?: number;
+  freq?: number;
+  step?: number;
+  start?: number;
+  duration?: number;
+  sweep?: "dec" | "oct" | "lin";
+  points?: number;
+  f_start?: number;
+  f_stop?: number;
+}
+
+export interface SimTrace {
+  name: string;
+  x: number[];
+  y: number[];
+}
+
 export interface SimResult {
-  cir: string;
-  t: number[];
-  vin: number[];
-  vout: number[];
-  ports: { in: string | null; out: string | null };
-  /** 输出 THD（前 9 次谐波，相对基波）；null = 算不出来 */
+  analysis: AnalysisKind;
+  traces: SimTrace[];
+  op: Record<string, number> | null;
+  cancelled: boolean;
+  /** 瞬态输出的 THD（前 9 次谐波）；非 tran 为 null */
   thd: number | null;
-  thd_in: number | null;
+  cir: string;
   log: string;
 }
 
@@ -60,8 +79,13 @@ export const backend = {
   ping: () => rpc<{ pong: boolean; version: string }>("designer.ping", {}),
   netlist: (doc: unknown) => rpc<NetlistResult>("designer.netlist", doc),
   /** 仿真：后端拼上源与 .tran 跑 ngspice，返回波形（不影响交付的 .cir） */
-  simulate: (doc: unknown, opts: { amp: number; freq: number; stop_ms: number }) =>
-    rpc<SimResult>("designer.simulate", { doc, ...opts }),
+  simulate: (doc: unknown, analysis: AnalysisKind, params: SimParams, probes: string[]) =>
+    rpc<SimResult>("designer.simulate", { doc, analysis, params, probes }),
+  /** 取消正在跑的仿真 */
+  stop: () => rpc<boolean>("designer.stop", {}),
+  /** 频谱（示波器的 FFT 按钮） */
+  fft: (x: number[], y: number[], maxFreq: number) =>
+    rpc<{ f: number[]; db: number[] }>("designer.fft", { x, y, max_freq: maxFreq }),
   /** 调 rustomp-import 把网表生成 Rust 电路（需要 RUSTOMP_ROOT 或同级 rustomp） */
   codegen: (doc: unknown) => rpc<CodegenResult>("designer.codegen", doc),
   /** 保存到服务端缓存（前端随后清空撤销/重做，与 breadspice 的"保存布局"一致） */

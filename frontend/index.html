@@ -84,18 +84,58 @@
     </dialog>
 
     <dialog id="sim">
-      <h2>仿真（ngspice 瞬态）</h2>
+      <h2>仿真（复用 breadspice 的核心：rawfile 通道）</h2>
       <p class="simparams">
-        <label>幅值 <input id="simAmp" type="number" step="0.05" value="0.2"> V</label>
-        <label>频率 <input id="simFreq" type="number" step="100" value="1000"> Hz</label>
-        <label>时长 <input id="simStop" type="number" step="1" value="10"> ms</label>
+        <label>分析
+          <select id="simAnalysis">
+            <option value="tran" selected>瞬态（tran）</option>
+            <option value="ac">交流（ac）</option>
+          </select>
+        </label>
         <button id="simRun" class="primary">运行</button>
+        <button id="simStop" title="取消正在跑的仿真">停止</button>
         <span id="simStatus" class="muted"></span>
       </p>
+      <div id="simTranFields" class="simparams">
+        <label>幅值 <input id="simAmp" type="number" step="0.05" value="0.2"> V</label>
+        <label>频率 <input id="simFreq" type="number" step="100" value="1000"> Hz</label>
+        <label>步长 <input id="simStep" type="number" step="any" value="0.00001"> s</label>
+        <label>起始 <input id="simStart" type="number" step="any" value="0"> s</label>
+        <label>持续 <input id="simDuration" type="number" step="any" value="0.02"> s</label>
+      </div>
+      <div id="simAcFields" class="simparams" hidden>
+        <label>扫描
+          <select id="simAcSweep">
+            <option value="dec" selected>dec</option>
+            <option value="oct">oct</option>
+            <option value="lin">lin</option>
+          </select>
+        </label>
+        <label>点数 <input id="simAcPoints" type="number" value="100"></label>
+        <label>起始 <input id="simAcStart" type="number" step="any" value="10"> Hz</label>
+        <label>终止 <input id="simAcStop" type="number" step="any" value="100000"> Hz</label>
+      </div>
       <p id="simSemantics" class="muted"></p>
       <svg id="simPlot"></svg>
       <details><summary>ngspice 日志</summary><pre id="simLog"></pre></details>
       <p style="text-align: right"><button id="simClose">关闭</button></p>
+    </dialog>
+
+    <dialog id="scope">
+      <h2>示波器（双击 OUT 元件打开）</h2>
+      <p id="scopeStatus" class="muted"></p>
+      <svg id="scopePlot"></svg>
+      <p style="text-align: right">
+        <button id="scopeFft">频谱 FFT</button>
+        <button id="scopeClose">关闭</button>
+      </p>
+    </dialog>
+
+    <dialog id="meter">
+      <h2 id="meterTitle">电压表</h2>
+      <div id="meterValue">—</div>
+      <p id="meterHint" class="muted"></p>
+      <p style="text-align: right"><button id="meterClose">关闭</button></p>
     </dialog>
 
     <dialog id="preview">

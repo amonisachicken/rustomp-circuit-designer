@@ -58,6 +58,17 @@
       },
       "rot": 0,
       "mirror": "none"
+    },
+    {
+      "id": "p6",
+      "ref": "TP1",
+      "symbol": "test-point",
+      "at": {
+        "x": 40,
+        "y": 10
+      },
+      "rot": 0,
+      "mirror": "none"
     }
   ],
   "wires": [
@@ -86,7 +97,20 @@
           "y": 0
         }
       ]
+    },
+    {
+      "id": "w3",
+      "points": [
+        {
+          "x": 35,
+          "y": 10
+        },
+        {
+          "x": 35,
+          "y": 0
+        }
+      ]
     }
   ],
-  "nextId": 10
+  "nextId": 20
 }

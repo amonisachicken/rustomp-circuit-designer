@@ -129,6 +129,11 @@ async fn rpc(State(app): State<Arc<App>>, Json(req): Json<RpcRequest>) -> Json<R
                 Err(e) => err(e),
             }
         }
+        "designer.last" => match store::last(&app.root) {
+            Ok(Some(r)) => ok(serde_json::to_value(r).unwrap_or(Value::Null)),
+            Ok(None) => ok(Value::Null),
+            Err(e) => err(e),
+        },
         other => err(format!("未知方法：{other}")),
     }
 }

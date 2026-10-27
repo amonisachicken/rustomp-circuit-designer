@@ -40,6 +40,18 @@ fn safe_name(name: &str) -> String {
     s
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct LastDesign {
+    pub name: String,
+    pub file: String,
+    pub doc: serde_json::Value,
+}
+
+/// 上次保存的是哪一份（`<cache>/last` 里存文件名）。启动时用它自动恢复。
+fn last_pointer(repo: &Path) -> PathBuf {
+    data_dir(repo).join("last")
+}
+
 pub fn save(repo: &Path, name: &str, doc: &serde_json::Value) -> Result<SaveResult, String> {
     let dir = data_dir(repo);
     std::fs::create_dir_all(&dir).map_err(|e| format!("建缓存目录失败（{}）：{e}", dir.display()))?;
@@ -48,5 +60,32 @@ pub fn save(repo: &Path, name: &str, doc: &serde_json::Value) -> Result<SaveResu
     let mut text = serde_json::to_string_pretty(doc).map_err(|e| format!("序列化失败：{e}"))?;
     text.push('\n');
     std::fs::write(&path, &text).map_err(|e| format!("写文件失败（{}）：{e}", path.display()))?;
+    // 记住"上次保存"，供启动时自动恢复
+    let _ = std::fs::write(last_pointer(repo), &file);
     Ok(SaveResult { path: path.display().to_string(), file, bytes: text.len() })
+}
+
+/// 读回"上次保存"的设计；没有就返回 None（首次启动）。
+pub fn last(repo: &Path) -> Result<Option<LastDesign>, String> {
+    let ptr = last_pointer(repo);
+    let Ok(file) = std::fs::read_to_string(&ptr) else {
+        return Ok(None);
+    };
+    let file = file.trim().to_string();
+    if file.is_empty() {
+        return Ok(None);
+    }
+    let path = data_dir(repo).join(&file);
+    let text = match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(_) => return Ok(None), // 指针还在、文件没了 → 当作没有
+    };
+    let doc: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("上次保存的文件解析失败（{}）：{e}", path.display()))?;
+    let name = doc
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("未命名电路")
+        .to_string();
+    Ok(Some(LastDesign { name, file, doc }))
 }

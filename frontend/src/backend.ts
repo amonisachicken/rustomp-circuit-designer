@@ -66,4 +66,6 @@ export const backend = {
   codegen: (doc: unknown) => rpc<CodegenResult>("designer.codegen", doc),
   /** 保存到服务端缓存（前端随后清空撤销/重做，与 breadspice 的"保存布局"一致） */
   save: (name: string, doc: unknown) => rpc<SaveResult>("designer.save", { name, doc }),
+  /** 上次保存的设计（启动时自动恢复）；没有就返回 null */
+  last: () => rpc<{ name: string; file: string; doc: unknown } | null>("designer.last", {}),
 };

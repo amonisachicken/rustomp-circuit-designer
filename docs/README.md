@@ -19,3 +19,4 @@
 | `05-netlist-contract.md` | `rustomp/docs/circuit-import.md` §6.5、§10 |
 | `05-netlist-contract.md` §2 | `rustomp/docs/declarative-build.md` §3.4 |
 | `01-assets` §4 | `rustomp/docs/component-library.md` §10.1b（型号闭集表） |
+| `07-sim-comparison.md` | **仿真能力对照**：breadspice 的实现细节 vs 本设计器，差异清单与取舍 | 想扩仿真功能时 |

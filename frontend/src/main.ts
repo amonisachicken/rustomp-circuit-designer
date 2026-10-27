@@ -724,6 +724,24 @@ async function previewPng(): Promise<void> {
 
 // ---------------------------------------------------------------- 启动
 
+/** 启动时读回上次保存的设计（服务端缓存）；成功返回 true */
+async function restoreLast(): Promise<boolean> {
+  try {
+    const last = await backend.last();
+    if (!last) return false;
+    const loaded = last.doc as Doc;
+    if (!Array.isArray(loaded.parts) || !Array.isArray(loaded.wires)) return false;
+    Object.assign(doc, loaded);
+    doc.wires = normalizeWires(doc.wires);
+    doc.name = last.name || "未命名电路";
+    doc.nextId = Math.max(doc.nextId ?? 1, doc.parts.length + doc.wires.length + 1);
+    hooks.status(`已恢复上次保存的布局：${last.file}`);
+    return true;
+  } catch {
+    return false; // 后端没起 / 读不到 → 安静地当作首次启动
+  }
+}
+
 /** `?load=<name>` 载入 frontend/public/examples/<name>.design.json（示例电路） */
 async function loadExample(name: string): Promise<boolean> {
   try {
@@ -749,9 +767,11 @@ async function main(): Promise<void> {
 
   const q = new URLSearchParams(location.search);
   const example = q.get("load");
+  // 启动时自动恢复"上次保存"的布局（同 breadspice 的 initProject）
+  const restored = example || q.has("fresh") ? false : await restoreLast();
   if (example) {
     await loadExample(example);
-  } else {
+  } else if (!restored) {
     // 首屏演示：一个电阻 + 一个电容
     enterPlace("resistor", table, hooks, { x: 20, y: 20 });
     commitPlace(mode as Extract<Mode, { kind: "place" }>, hooks);

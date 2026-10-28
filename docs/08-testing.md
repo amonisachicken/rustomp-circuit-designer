@@ -92,7 +92,7 @@
 ```bash
 cd backend && cargo test          # 16 项，含真跑 ngspice
 cd frontend && npm run typecheck  # tsc --noEmit（零运行时依赖，无单测框架）
-# 浏览器：?selftest=1 —— 22 项，改交互/几何后必跑
+# 浏览器：?selftest=1&load=lowpass —— 33 项，改交互/几何后必跑
 ```
 
 改了**符号几何**（`symbols/symbols.json`）或**网表规则**时，额外做一次：

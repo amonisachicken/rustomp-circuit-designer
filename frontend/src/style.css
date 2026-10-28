@@ -52,6 +52,8 @@ body {
 /* hover 高亮：命中区 2×2 格，让用户看得出"现在点得中谁" */
 .parts g.hovered > g > svg { filter: drop-shadow(0 0 2px var(--accent)); }
 .wires line.hovered { stroke: var(--accent); stroke-width: 2.4; }
+/* 导线真实连接点（D-021）：黑点 = 连上了；十字交叉没有点 = 没连 */
+.junctions circle { fill: #0f172a; }
 .dangling circle { fill: rgba(220, 38, 38, .18); stroke: #dc2626; stroke-width: 1.2; stroke-dasharray: 3 2; }
 .ghost.bad { filter: saturate(0.2); }
 

@@ -9,6 +9,8 @@ import {
   nextId,
   nextRef,
   snap,
+  toWorld,
+  trimWireBetweenPins,
   type Doc,
   type Mirror,
   type Part,
@@ -72,8 +74,24 @@ export function commitPlace(m: Extract<Mode, { kind: "place" }>, hooks: EditorHo
   };
   hooks.commit();
   hooks.doc.parts.push(part);
+  trimWiresUnderParts(hooks.doc, hooks.table);
   hooks.changed();
   hooks.status(`${part.ref} 已放置`);
+}
+
+/**
+ * 语法糖（D-021）：所有「两引脚落在同一直导线上」的元件，剪掉两脚之间的导线。
+ * 只处理恰好 2 个引脚的符号（电位器/三极管/运放不在此列，它们的引脚不共线）。
+ */
+export function trimWiresUnderParts(doc: Doc, table: SymbolTable): boolean {
+  let changed = false;
+  for (const part of doc.parts) {
+    const sym = table.symbols[part.symbol];
+    if (!sym || sym.pins.length !== 2) continue;
+    const [a, b] = sym.pins.map((p) => toWorld(p.at, part));
+    if (a && b && trimWireBetweenPins(doc, a, b)) changed = true;
+  }
+  return changed;
 }
 
 export function toggleRotate(m: Mode, hooks: EditorHooks): void {
@@ -154,6 +172,7 @@ export function dropAt(m: Extract<Mode, { kind: "move" }>, at: Vec, hooks: Edito
   if (!part) return;
   hooks.commit();
   part.at = { x: snap(at.x), y: snap(at.y) };
+  trimWiresUnderParts(hooks.doc, hooks.table);
   hooks.changed();
   hooks.status(`${part.ref} 已移动`);
 }

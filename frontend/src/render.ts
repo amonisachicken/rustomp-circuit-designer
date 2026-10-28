@@ -2,7 +2,7 @@
 //
 // 全部用原生 SVG DOM（不引框架）。坐标系：1 单位 = 1 mm，视图变换只改 <g> 的 transform。
 
-import { GRID, toWorld, type Doc, type Part, type Vec } from "./model";
+import { GRID, toWorld, wireJunctions, type Doc, type Part, type Vec } from "./model";
 import type { SymText, SymbolSpec, SymbolTable } from "./symbols";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -106,6 +106,24 @@ export function render(root: SVGSVGElement, o: RenderOpts): void {
     wireG.append(line);
   }
   root.append(wireG);
+
+  // ---- 导线连接点：黑色圆点 ----
+  // 只标 T 型接点与 3+ 分支；十字交叉不画点（交叉 ≠ 连接，与后端并查集一致）
+  const junctions = wireJunctions(doc.wires);
+  if (junctions.length) {
+    const jG = el("g");
+    jG.setAttribute("class", "junctions");
+    const r = Math.max(2.5, view.scale * 1.2);
+    for (const p of junctions) {
+      const c = el("circle");
+      const s = mmToScreen(p, view);
+      c.setAttribute("cx", `${s.x}`);
+      c.setAttribute("cy", `${s.y}`);
+      c.setAttribute("r", `${r}`);
+      jG.append(c);
+    }
+    root.append(jG);
+  }
 
   // ---- 元件 ----
   const partG = el("g");

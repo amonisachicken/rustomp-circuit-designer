@@ -11,6 +11,8 @@ import {
   normalizeWires,
   snap,
   splitValue,
+  trimWireBetweenPins,
+  wireJunctions,
   type Doc,
   type Part,
 } from "./model";
@@ -29,6 +31,7 @@ import {
   pickUp,
   toggleMirror,
   toggleRotate,
+  trimWiresUnderParts,
   type EditorHooks,
   type Mode,
 } from "./mode";
@@ -341,10 +344,12 @@ canvas.addEventListener("pointerdown", (ev) => {
         hooks.setMode({ ...mode, from: p });
       } else {
         const next = commitWire(mode.from, p, hooks);
+        // 语法糖：导线从头尾跨过两脚元件时，剪掉两脚之间那段（D-021）
+        const trimmed = trimWiresUnderParts(doc, table);
         // 合并重合部分 + 接续直导线（docs/03 §7.5）
         const before = doc.wires.length;
         doc.wires = normalizeWires(doc.wires);
-        if (doc.wires.length !== before) repaint();
+        if (trimmed || doc.wires.length !== before) repaint();
         hooks.setMode({ ...mode, from: next });
       }
       return;
@@ -604,6 +609,9 @@ $<HTMLInputElement>("#importFile").addEventListener("change", async (ev) => {
       throw new Error("不是有效的设计文件（缺少 parts / wires）");
     }
     Object.assign(doc, loaded);
+    doc.wires = normalizeWires(doc.wires);
+    // 老图纸可能在两脚元件下面留着导线（= 短路 R/C/D）；导入时按 D-021 清掉
+    trimWiresUnderParts(doc, table);
     doc.wires = normalizeWires(doc.wires);
     doc.name = loaded.name || file.name.replace(/\.design\.json$|\.json$/i, "") || "未命名电路";
     doc.nextId = Math.max(doc.nextId ?? 1, doc.parts.length + doc.wires.length + 1);
@@ -905,6 +913,9 @@ async function restoreLast(): Promise<boolean> {
     if (!Array.isArray(loaded.parts) || !Array.isArray(loaded.wires)) return false;
     Object.assign(doc, loaded);
     doc.wires = normalizeWires(doc.wires);
+    // 老图纸可能在两脚元件下面留着导线（= 短路 R/C/D）；载入时按 D-021 清掉
+    trimWiresUnderParts(doc, table);
+    doc.wires = normalizeWires(doc.wires);
     doc.name = last.name || "未命名电路";
     doc.nextId = Math.max(doc.nextId ?? 1, doc.parts.length + doc.wires.length + 1);
     hooks.status(`已恢复上次保存的布局：${last.file}`);
@@ -922,6 +933,8 @@ async function loadExample(name: string): Promise<boolean> {
     if (!res.ok) throw new Error(String(res.status));
     const text = await res.text();
     Object.assign(doc, JSON.parse(text) as Doc);
+    doc.wires = normalizeWires(doc.wires);
+    trimWiresUnderParts(doc, table);
     doc.wires = normalizeWires(doc.wires);
     doc.nextId = Math.max(doc.nextId ?? 1, doc.parts.length + doc.wires.length + 1);
     return true;
@@ -1129,6 +1142,48 @@ async function main(): Promise<void> {
     window.dispatchEvent(new PointerEvent("pointerup", clickAt));
     const clickSelects = selectedId === r1!.id;
     results.push(`view-drag-pan=${panMoved && clickSelects}`);
+
+    // ⑱ 导线连接点黑点（D-021）：T 型/分支有，交叉与拐角无
+    const tJ = wireJunctions([
+      { id: "ja", points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+      { id: "jb", points: [{ x: 10, y: 0 }, { x: 10, y: 20 }] },
+    ]);
+    results.push(`junction-t=${tJ.length === 1 && tJ[0]!.x === 10 && tJ[0]!.y === 0}`);
+    const xJ = wireJunctions([
+      { id: "jc", points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+      { id: "jd", points: [{ x: 10, y: -10 }, { x: 10, y: 10 }] },
+    ]);
+    results.push(`junction-cross=${xJ.length === 0}`);
+    const lJ = wireJunctions([
+      { id: "je", points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+      { id: "jf", points: [{ x: 20, y: 0 }, { x: 20, y: 20 }] },
+    ]);
+    results.push(`junction-corner=${lJ.length === 0}`);
+
+    // ⑲ 语法糖：两脚落在同一直导线上 → 剪掉两脚之间那段（D-021）
+    const tdoc = emptyDoc("trim");
+    tdoc.wires = [{ id: "wt", points: [{ x: 0, y: 0 }, { x: 30, y: 0 }] }];
+    tdoc.parts.push({
+      id: "pt",
+      ref: "R99",
+      symbol: "resistor",
+      at: { x: 15, y: 0 },
+      rot: 0,
+      mirror: "none",
+      value: "10k",
+    });
+    // 电阻引脚 = at ± 12.5 mm → 2.5 / 27.5；导线 0…30 → 留下 0…2.5 与 27.5…30
+    const trimChanged = trimWiresUnderParts(tdoc, table);
+    const spans = tdoc.wires
+      .map((w) => `${Math.min(w.points[0].x, w.points[1].x)}..${Math.max(w.points[0].x, w.points[1].x)}`)
+      .sort()
+      .join(",");
+    results.push(`trim-keep-ends=${trimChanged && tdoc.wires.length === 2 && spans === "0..2.5,27.5..30"}`);
+    // 导线正好从一脚跨到另一脚 → 整根删掉（这里是纯函数，不依赖符号表）
+    const exact = emptyDoc("trim-exact");
+    exact.wires = [{ id: "wex", points: [{ x: 2.5, y: 0 }, { x: 27.5, y: 0 }] }];
+    const exactChanged = trimWireBetweenPins(exact, { x: 2.5, y: 0 }, { x: 27.5, y: 0 });
+    results.push(`trim-exact=${exactChanged && exact.wires.length === 0}`);
 
     const ok = results.every((x) => x.endsWith("=true"));
     $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;

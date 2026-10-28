@@ -83,8 +83,9 @@ export function toWorld(local: Vec, part: Pick<Part, "at" | "rot" | "mirror">): 
  * 副作用：用户在 `w` 模式里连点画出的折线，直的几段会自动变成一条；
  * 「删除」于是就是"删掉这两个锚点之间的整段"。
  */
+const EPS = 1e-6;
+
 export function normalizeWires(wires: Wire[]): Wire[] {
-  const EPS = 1e-6;
   type Seg = { horiz: boolean; coord: number; lo: number; hi: number; id: string };
   const segs: Seg[] = [];
 
@@ -138,6 +139,108 @@ function toWire(s: { horiz: boolean; coord: number; lo: number; hi: number; id: 
   return s.horiz
     ? { id: s.id, points: [{ x: s.lo, y: s.coord }, { x: s.hi, y: s.coord }] }
     : { id: s.id, points: [{ x: s.coord, y: s.lo }, { x: s.coord, y: s.hi }] };
+}
+
+const samePoint = (a: Vec, b: Vec): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;
+
+/** p 落在导线 a–b 的**内部**（不含两端；两端相接属于拐角或归一化已合并的情形） */
+function onSegmentInterior(p: Vec, a: Vec, b: Vec): boolean {
+  if (Math.abs(a.y - b.y) < EPS) {
+    return Math.abs(p.y - a.y) < EPS && p.x > Math.min(a.x, b.x) + EPS && p.x < Math.max(a.x, b.x) - EPS;
+  }
+  if (Math.abs(a.x - b.x) < EPS) {
+    return Math.abs(p.x - a.x) < EPS && p.y > Math.min(a.y, b.y) + EPS && p.y < Math.max(a.y, b.y) - EPS;
+  }
+  return false;
+}
+
+/**
+ * 导线与导线的**真实连接点**（画黑色圆点，D-021）。
+ *
+ * 判据只有两条：
+ *   ① T 型 —— 某根导线的端点落在另一根导线的中间；
+ *   ② 分支 —— 三根及以上导线的端点重合于同一点。
+ * 十字交叉（两根线各自在中间相交）**不是连接**，不画点 —— 与后端并查集的语义一致：
+ * 连通只靠「端点落在导线上」，交叉不产生网络合并。
+ * 两根线端点相接的拐角也不画点，这是原理图制图惯例。
+ */
+export function wireJunctions(wires: Wire[]): Vec[] {
+  const pts: Vec[] = [];
+  const add = (p: Vec): void => {
+    if (!pts.some((q) => samePoint(q, p))) pts.push(p);
+  };
+
+  for (const w of wires) {
+    for (const p of w.points) {
+      for (const o of wires) {
+        if (o.id === w.id) continue;
+        if (onSegmentInterior(p, o.points[0], o.points[1])) add(p);
+      }
+    }
+  }
+
+  const ends = wires.flatMap((w) => w.points);
+  for (const p of ends) {
+    if (ends.filter((q) => samePoint(q, p)).length >= 3) add(p);
+  }
+  return pts;
+}
+
+/**
+ * 语法糖（D-021）：两个引脚落在同一条直导线上时，剪掉**两引脚之间**那段导线。
+ *
+ * 只剪「完整覆盖两脚之间整段」的导线（两端都够得着），所以：
+ *   - 导线正好从一脚跨到另一脚 → 整根删掉；
+ *   - 导线两头都伸出元件 → 只剪中间，留下两端；
+ *   - 导线只盖住一脚（元件一半在线上）→ 不动，那是真的没接上。
+ * 保留原导线 id（选中/撤销稳定），剪下来的另一端用新 id。
+ */
+export function trimWireBetweenPins(doc: Doc, pa: Vec, pb: Vec): boolean {
+  const horiz = Math.abs(pa.y - pb.y) < EPS;
+  const vert = Math.abs(pa.x - pb.x) < EPS;
+  if (!horiz && !vert) return false;
+
+  const coord = horiz ? pa.y : pa.x;
+  const lo = horiz ? Math.min(pa.x, pb.x) : Math.min(pa.y, pb.y);
+  const hi = horiz ? Math.max(pa.x, pb.x) : Math.max(pa.y, pb.y);
+  if (hi - lo < EPS) return false;
+
+  let changed = false;
+  const out: Wire[] = [];
+  for (const w of doc.wires) {
+    const [a, b] = w.points;
+    const sameLine = horiz
+      ? Math.abs(a.y - b.y) < EPS && Math.abs(a.y - coord) < EPS
+      : Math.abs(a.x - b.x) < EPS && Math.abs(a.x - coord) < EPS;
+    if (!sameLine) {
+      out.push(w);
+      continue;
+    }
+    const wlo = horiz ? Math.min(a.x, b.x) : Math.min(a.y, b.y);
+    const whi = horiz ? Math.max(a.x, b.x) : Math.max(a.y, b.y);
+    // 必须完整盖住两脚之间 → 才剪；否则原样保留
+    if (wlo > lo + EPS || whi < hi - EPS) {
+      out.push(w);
+      continue;
+    }
+    changed = true;
+    const mk = (l: number, h: number, id: string): Wire | null => {
+      if (h - l < EPS) return null;
+      const points: [Vec, Vec] = horiz
+        ? [{ x: l, y: coord }, { x: h, y: coord }]
+        : [{ x: coord, y: l }, { x: coord, y: h }];
+      const wire: Wire = { id, points };
+      if (w.net) wire.net = w.net;
+      return wire;
+    };
+    const head = mk(wlo, lo, w.id);
+    const tail = mk(hi, whi, head ? nextId(doc, "w") : w.id);
+    if (head) out.push(head);
+    if (tail) out.push(tail);
+  }
+
+  if (changed) doc.wires = out;
+  return changed;
 }
 
 /** 各类元件允许的数值单位（第一个是默认；`""` = 基本单位 Ω/V） */

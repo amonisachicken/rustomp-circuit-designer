@@ -21,11 +21,18 @@ import type { SymbolTable } from "./symbols";
 
 export type Mode =
   | { kind: "view" }
-  | { kind: "place"; symbol: string; at: Vec; rot: Rot; mirror: Mirror }
+  | { kind: "place"; symbol: string; at: Vec; rot: Rot; mirror: Mirror; attrs?: PartAttrs }
   | { kind: "wire"; from: Vec | null }
   | { kind: "delete" }
   | { kind: "move"; partId: string; origin: Part; at: Vec }
   | { kind: "copy" }; // 等待"点一个元件"进入 place
+
+/**
+ * 会随「d 复制」一起搬过去的元件属性（位号/位置/符号/旋转由其它字段管）。
+ * 数值与型号是主要目标；别名（电位器）与 IN 的波形发生器参数也一并带上 ——
+ * 否则复制一个 0.5 V / 1 kHz 的 IN 会悄悄变回默认值。
+ */
+export type PartAttrs = Pick<Part, "value" | "model" | "alias" | "amp" | "freq">;
 
 export interface EditorHooks {
   doc: Doc;
@@ -52,11 +59,28 @@ const DEFAULTS: Record<string, Partial<Part>> = {
   opamp: { model: "OP07A" },
 };
 
-export function enterPlace(symbol: string, table: SymbolTable, hooks: EditorHooks, at: Vec = { x: 0, y: 0 }): void {
+export function enterPlace(
+  symbol: string,
+  table: SymbolTable,
+  hooks: EditorHooks,
+  at: Vec = { x: 0, y: 0 },
+  attrs?: PartAttrs,
+): void {
   const sym = table.symbols[symbol];
   if (!sym) return;
-  hooks.setMode({ kind: "place", symbol, at, rot: 0, mirror: "none" });
+  hooks.setMode({ kind: "place", symbol, at, rot: 0, mirror: "none", ...(attrs ? { attrs } : {}) });
   hooks.status(`放置 ${sym.name.zh}：左键落点，ctrl+r 旋转，ctrl+e 镜像，esc 退出`);
+}
+
+/** 从已有元件抽出可复制的属性（只带真正存在的值） */
+export function copyAttrs(src: Part): PartAttrs {
+  const attrs: PartAttrs = {};
+  if (src.value !== undefined) attrs.value = src.value;
+  if (src.model !== undefined) attrs.model = src.model;
+  if (src.alias !== undefined) attrs.alias = src.alias;
+  if (src.amp !== undefined) attrs.amp = src.amp;
+  if (src.freq !== undefined) attrs.freq = src.freq;
+  return attrs;
 }
 
 /** 落一个元件（place 模式的落点动作） */
@@ -71,6 +95,8 @@ export function commitPlace(m: Extract<Mode, { kind: "place" }>, hooks: EditorHo
     rot: m.rot,
     mirror: m.mirror,
     ...DEFAULTS[m.symbol],
+    // 复制带来的属性覆盖默认值（D-022）；未复制的字段仍保留默认值
+    ...m.attrs,
   };
   hooks.commit();
   hooks.doc.parts.push(part);

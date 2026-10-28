@@ -361,3 +361,48 @@ rustomp 侧把 E85 之后的能力用起来了：设计器工程 → `rustomp-im
 **改到的文件**：`frontend/src/model.ts`（`wireJunctions` / `trimWireBetweenPins`）、
 `render.ts`、`style.css`、`mode.ts`、`main.ts`（4 个时机 + 5 项自测）、
 `docs/00-decisions.md`（D-021）、`docs/03-editor-model.md`、`docs/08-testing.md`、`README.md`。
+
+---
+
+# 2026-10-28（续）：`d` 复制带上数值与型号
+
+## E16 复制不该“复制个形状”
+
+**现象**：`d` 只带了符号、旋转、镜像，属性走了 `DEFAULTS` —— 复制 `1N34A` 得到 `1N4148`，
+复制 `4.7k` 得到 `10k`。两个元件在画布上一样，网表和声音不一样。
+
+**做法**：给 `Mode.place` 加一个可选 `attrs: PartAttrs`
+（`value` / `model` / `alias` / `amp` / `freq`），`commitPlace` 的展开顺序变成：
+
+```ts
+...DEFAULTS[m.symbol],   // 1) 目标符号的默认值
+...m.attrs,              // 2) 复制带来的属性覆盖
+```
+
+`copyAttrs(src)` 只把**真正存在**的字段放进 `attrs`（`undefined` 不写入），
+所以“用户清空数值后复制”不会把空值盖到默认值上。位号仍走 `nextRef`，位置由落点决定。
+
+**为什么连 `alias` / `amp` / `freq` 一起带**：电位器别名是 rustomp 参数映射的一部分
+（`param RP1A ... `），IN 的幅值/频率是仿真激励。只带 value/model 会留下一半“看起来复制了、
+实际没复制”的坑。
+
+## 踩坑：自测里的双击检测把复制吃掉了
+
+第一版自测 `copy-value=false` 而 `copy-model=true`，很迷惑。原因不在复制逻辑，而在
+**双击检测**：上一项 `view-drag-pan` 刚点过同一个电阻，间隔 < 400 ms；
+`d` 之后的第一下点击被当成“双击开属性”，复制根本没落到 place 模式，
+`doc.parts.at(-1)` 拿到的是旧元件（默认 10k）。第二次复制点的是二极管（不同 id），所以通过了。
+
+修法：复制自测前 `await 450 ms`，让双击窗口过期。**教训**：用真实事件驱动自测时，
+“上一步的点击”是隐式状态，时间窗口类逻辑（双击、长按）必须显式错开。
+
+## 验证
+
+| 项 | 结果 |
+|---|---|
+| `npm run typecheck` / `npm run build` | ✅ / ✅（JS 43.58 kB，gzip 16.30 kB） |
+| `?selftest=1&load=lowpass` | **29/29 全绿**，新增 `copy-value`（4.7k）、`copy-model`（1N34A） |
+| 文档 | D-022、03 §3 的 `d` 行与 §3.1 规则 6、08 自测清单、README 功能表 |
+
+**改到的文件**：`frontend/src/mode.ts`（`PartAttrs` / `copyAttrs` / `commitPlace`）、
+`frontend/src/main.ts`（copy 分支 + 自测）、文档 5 处。

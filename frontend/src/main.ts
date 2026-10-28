@@ -22,6 +22,7 @@ import {
   cancel,
   commitPlace,
   commitWire,
+  copyAttrs,
   cursorFor,
   deleteAt,
   dropAt,
@@ -364,10 +365,12 @@ canvas.addEventListener("pointerdown", (ev) => {
       if (!partId) return;
       const src = doc.parts.find((p) => p.id === partId);
       if (!src) return;
-      enterPlace(src.symbol, table, hooks, at);
+      // 复制连数值/型号/别名/仪表参数一起带走（D-022）
+      enterPlace(src.symbol, table, hooks, at, copyAttrs(src));
       const m = mode as unknown as Extract<Mode, { kind: "place" }>;
       hooks.setMode({ ...m, rot: src.rot, mirror: src.mirror });
-      hooks.status(`复制 ${src.ref}：点击落点（ctrl+r 旋转，esc 退出）`);
+      const carried = [src.value, src.model].filter(Boolean).join(" / ");
+      hooks.status(`复制 ${src.ref}${carried ? `（${carried}）` : ""}：点击落点（ctrl+r 旋转，esc 退出）`);
       return;
     }
     case "move": {
@@ -1184,6 +1187,36 @@ async function main(): Promise<void> {
     exact.wires = [{ id: "wex", points: [{ x: 2.5, y: 0 }, { x: 27.5, y: 0 }] }];
     const exactChanged = trimWireBetweenPins(exact, { x: 2.5, y: 0 }, { x: 27.5, y: 0 });
     results.push(`trim-exact=${exactChanged && exact.wires.length === 0}`);
+
+    // ⑳ d 复制：数值与型号一起带走（D-022）
+    // 先等 450 ms，避开双击检测窗口（⑰ 刚点过同一个电阻，否则会被当成双击开属性）
+    await new Promise((r) => setTimeout(r, 450));
+    const rect2 = canvas.getBoundingClientRect();
+    const evAt = (p: { x: number; y: number }) => {
+      const s = mmToScreen(p, view);
+      return { clientX: rect2.left + s.x, clientY: rect2.top + s.y, bubbles: true, button: 0, pointerId: 1 };
+    };
+    const copyByD = (src: Part, to: { x: number; y: number }): Part => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "d", bubbles: true }));
+      canvas.dispatchEvent(new PointerEvent("pointerdown", evAt(src.at)));
+      canvas.dispatchEvent(new PointerEvent("pointerup", evAt(src.at)));
+      canvas.dispatchEvent(new PointerEvent("pointermove", evAt(to)));
+      canvas.dispatchEvent(new PointerEvent("pointerdown", evAt(to)));
+      hooks.setMode({ kind: "view" });
+      return doc.parts[doc.parts.length - 1]!;
+    };
+    const rSrc = doc.parts.find((p) => p.symbol === "resistor")!;
+    rSrc.value = "4.7k";
+    const rCopy = copyByD(rSrc, { x: -40, y: 240 });
+    results.push(`copy-value=${rCopy.ref !== rSrc.ref && rCopy.symbol === "resistor" && rCopy.value === "4.7k"}`);
+
+    enterPlace("diode", table, hooks, { x: 20, y: 240 });
+    commitPlace(mode as unknown as Extract<Mode, { kind: "place" }>, hooks);
+    hooks.setMode({ kind: "view" });
+    const dSrc = doc.parts[doc.parts.length - 1]!;
+    dSrc.model = "1N34A";
+    const dCopy = copyByD(dSrc, { x: 45, y: 240 });
+    results.push(`copy-model=${dCopy.ref !== dSrc.ref && dCopy.symbol === "diode" && dCopy.model === "1N34A"}`);
 
     const ok = results.every((x) => x.endsWith("=true"));
     $("#hint").textContent = `SELFTEST ${ok ? "ok" : "FAIL"} ${results.join(" ")}`;

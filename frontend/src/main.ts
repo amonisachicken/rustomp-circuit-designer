@@ -1188,6 +1188,54 @@ async function main(): Promise<void> {
     const exactChanged = trimWireBetweenPins(exact, { x: 2.5, y: 0 }, { x: 27.5, y: 0 });
     results.push(`trim-exact=${exactChanged && exact.wires.length === 0}`);
 
+    // ㉑ 多脚器件的共线引脚同样适用（D-021 扩展）
+    const potDoc = emptyDoc("trim-pot");
+    potDoc.wires = [{ id: "wp", points: [{ x: -20, y: 0 }, { x: 20, y: 0 }] }];
+    potDoc.parts.push({
+      id: "pp",
+      ref: "P1",
+      symbol: "potentiometer",
+      at: { x: 0, y: 0 },
+      rot: 0,
+      mirror: "none",
+      value: "500k",
+    });
+    const potSpans = trimWiresUnderParts(potDoc, table)
+      ? potDoc.wires
+          .map((w) => `${Math.min(w.points[0].x, w.points[1].x)}..${Math.max(w.points[0].x, w.points[1].x)}`)
+          .sort()
+          .join(",")
+      : "";
+    results.push(`trim-multi-pot=${potSpans === "-20..-12.5,12.5..20"}`);
+
+    // npn 的 C/E 共线（x=2.5，y=∓12.5）→ 竖向导线要剪
+    const bjtDoc = emptyDoc("trim-bjt");
+    bjtDoc.wires = [{ id: "wq", points: [{ x: 2.5, y: -30 }, { x: 2.5, y: 30 }] }];
+    bjtDoc.parts.push({
+      id: "qb",
+      ref: "Q1",
+      symbol: "npn",
+      at: { x: 0, y: 0 },
+      rot: 0,
+      mirror: "none",
+      model: "BC549C",
+    });
+    results.push(`trim-multi-bjt=${trimWiresUnderParts(bjtDoc, table) && bjtDoc.wires.length === 2}`);
+
+    // 运放的 IN+/IN− 共线（x=-15，y=∓5）
+    const opDoc = emptyDoc("trim-opamp");
+    opDoc.wires = [{ id: "wu", points: [{ x: -15, y: -20 }, { x: -15, y: 20 }] }];
+    opDoc.parts.push({
+      id: "uo",
+      ref: "U1",
+      symbol: "opamp",
+      at: { x: 0, y: 0 },
+      rot: 0,
+      mirror: "none",
+      model: "OP07A",
+    });
+    results.push(`trim-multi-opamp=${trimWiresUnderParts(opDoc, table) && opDoc.wires.length === 2}`);
+
     // ⑳ d 复制：数值与型号一起带走（D-022）
     // 先等 450 ms，避开双击检测窗口（⑰ 刚点过同一个电阻，否则会被当成双击开属性）
     await new Promise((r) => setTimeout(r, 450));

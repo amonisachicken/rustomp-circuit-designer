@@ -106,16 +106,45 @@ export function commitPlace(m: Extract<Mode, { kind: "place" }>, hooks: EditorHo
 }
 
 /**
- * 语法糖（D-021）：所有「两引脚落在同一直导线上」的元件，剪掉两脚之间的导线。
- * 只处理恰好 2 个引脚的符号（电位器/三极管/运放不在此列，它们的引脚不共线）。
+ * 语法糖（D-021）：元件的**共线引脚**落在同一直导线上时，剪掉最外两脚之间的导线。
+ *
+ * 不只 2 脚元件：BJT/JFET/MOS 的 C–E（D–S）、运放的 IN+–IN− / V+–V−、
+ * 电位器的 1–3 都是共线的，导线穿过它们同样是短路。规则：
+ *   - 按水平/垂直线把引脚分组，每组 ≥ 2 只才处理；
+ *   - 取该组最外两脚，交给 `trimWireBetweenPins`（仍需导线完整覆盖这一段）；
+ *   - 同一条线只剪一次（避免对同一段重复切割）。
  */
 export function trimWiresUnderParts(doc: Doc, table: SymbolTable): boolean {
   let changed = false;
   for (const part of doc.parts) {
     const sym = table.symbols[part.symbol];
-    if (!sym || sym.pins.length !== 2) continue;
-    const [a, b] = sym.pins.map((p) => toWorld(p.at, part));
-    if (a && b && trimWireBetweenPins(doc, a, b)) changed = true;
+    if (!sym || sym.pins.length < 2) continue;
+    const pins = sym.pins.map((p) => toWorld(p.at, part));
+    if (trimPinLines(doc, pins)) changed = true;
+  }
+  return changed;
+}
+
+const PIN_EPS = 1e-6;
+
+/** 把引脚按共线分组（水平 = 同一 y，垂直 = 同一 x），每组取最外两脚去剪 */
+function trimPinLines(doc: Doc, pins: Vec[]): boolean {
+  let changed = false;
+  const seenH = new Set<string>();
+  const seenV = new Set<string>();
+  for (const p of pins) {
+    const hk = p.y.toFixed(4);
+    if (!seenH.has(hk)) {
+      seenH.add(hk);
+      const row = pins.filter((q) => Math.abs(q.y - p.y) < PIN_EPS).sort((a, b) => a.x - b.x);
+      if (row.length >= 2 && trimWireBetweenPins(doc, row[0]!, row[row.length - 1]!)) changed = true;
+    }
+    const vk = p.x.toFixed(4);
+    if (!seenV.has(vk)) {
+      seenV.add(vk);
+      const col = pins.filter((q) => Math.abs(q.x - p.x) < PIN_EPS).sort((a, b) => a.y - b.y);
+      if (col.length >= 2 && trimWireBetweenPins(doc, col[0]!, col[col.length - 1]!)) changed = true;
+    }
   }
   return changed;
 }

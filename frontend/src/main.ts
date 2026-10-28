@@ -1236,6 +1236,19 @@ async function main(): Promise<void> {
     });
     results.push(`trim-multi-opamp=${trimWiresUnderParts(opDoc, table) && opDoc.wires.length === 2}`);
 
+    // ㉒ T 型接点继续画成十字：归一化不得吃掉交点（D-023）
+    const crossDoc = emptyDoc("cross-continue");
+    crossDoc.wires = [
+      { id: "xh", points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+      { id: "xv1", points: [{ x: 10, y: 0 }, { x: 10, y: -10 }] },
+      { id: "xv2", points: [{ x: 10, y: 0 }, { x: 10, y: 10 }] },
+    ];
+    crossDoc.wires = normalizeWires(crossDoc.wires);
+    const crossJ = wireJunctions(crossDoc.wires);
+    results.push(
+      `junction-cross-continued=${crossDoc.wires.length === 3 && crossJ.length === 1 && crossJ[0]!.x === 10 && crossJ[0]!.y === 0}`,
+    );
+
     // ⑳ d 复制：数值与型号一起带走（D-022）
     // 先等 450 ms，避开双击检测窗口（⑰ 刚点过同一个电阻，否则会被当成双击开属性）
     await new Promise((r) => setTimeout(r, 450));

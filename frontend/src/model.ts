@@ -80,6 +80,11 @@ export function toWorld(local: Vec, part: Pick<Part, "at" | "rot" | "mirror">): 
  * 合并成一条最长的线段（保留最早那条的 id，撤销/选中都稳定）。
  * 交叉（十字）不合并 —— 那仍然是两根线，连通性由后端算。
  *
+ * **但连接点不能合并掉**（D-023）：如果交点是一个 T 型接点（某根线的端点落在
+ * 另一根线中间），而合并会让这个端点变成某条长线的内部，就跳过这次合并。
+ * 否则“从 T 型交点继续画一笔”会把黑点变没 —— 不只是看不见，网表里也会从
+ * “接上”变成“交叉不接”。
+ *
  * 副作用：用户在 `w` 模式里连点画出的折线，直的几段会自动变成一条；
  * 「删除」于是就是"删掉这两个锚点之间的整段"。
  */
@@ -109,11 +114,12 @@ export function normalizeWires(wires: Wire[]): Wire[] {
   }
 
   const merged: Wire[] = [];
+  const barriers = mergeBarriers(wires);
   for (const list of groups.values()) {
     list.sort((p, q) => p.lo - q.lo || p.hi - q.hi);
     let cur = { ...list[0]! };
     for (const s of list.slice(1)) {
-      if (s.lo <= cur.hi + EPS) {
+      if (s.lo <= cur.hi + EPS && !mergeErasesBarrier(cur, s, barriers)) {
         cur.hi = Math.max(cur.hi, s.hi); // 重叠或首尾相接 → 接续
       } else {
         merged.push(toWire(cur));
@@ -139,6 +145,52 @@ function toWire(s: { horiz: boolean; coord: number; lo: number; hi: number; id: 
   return s.horiz
     ? { id: s.id, points: [{ x: s.lo, y: s.coord }, { x: s.hi, y: s.coord }] }
     : { id: s.id, points: [{ x: s.coord, y: s.lo }, { x: s.coord, y: s.hi }] };
+}
+
+/**
+ * 合并的「禁越点」（D-023）：某根导线的端点落在另一根**不同方向**导线的中间。
+ *
+ * 这是真实的 T 型连接。归一化如果把它两侧的同向线段合并成一根跨过它的长线，
+ * 端点就被吃掉：黑点消失，且后端并查集不再把两根线并成一个网络。
+ * 同向重叠不算（那是同一根线的重复，合并不丢连接）。
+ */
+function mergeBarriers(wires: Wire[]): Vec[] {
+  const pts: Vec[] = [];
+  const add = (p: Vec): void => {
+    if (!pts.some((q) => samePoint(q, p))) pts.push(p);
+  };
+  for (const x of wires) {
+    const xHoriz = Math.abs(x.points[0].y - x.points[1].y) < EPS;
+    for (const p of x.points) {
+      for (const y of wires) {
+        if (y.id === x.id) continue;
+        if (!onSegmentInterior(p, y.points[0], y.points[1])) continue;
+        const yHoriz = Math.abs(y.points[0].y - y.points[1].y) < EPS;
+        if (xHoriz !== yHoriz) add(p);
+      }
+    }
+  }
+  return pts;
+}
+
+/** 这次合并会不会把某个「禁越点」从端点变成内部点 */
+function mergeErasesBarrier(
+  cur: { horiz: boolean; coord: number; lo: number; hi: number },
+  s: { lo: number; hi: number },
+  barriers: Vec[],
+): boolean {
+  if (!barriers.length) return false;
+  const lo = Math.min(cur.lo, s.lo);
+  const hi = Math.max(cur.hi, s.hi);
+  const erased = [cur.lo, cur.hi, s.lo, s.hi].filter((v) => v > lo + EPS && v < hi - EPS);
+  if (!erased.length) return false;
+  for (const p of barriers) {
+    const onLine = cur.horiz ? Math.abs(p.y - cur.coord) < EPS : Math.abs(p.x - cur.coord) < EPS;
+    if (!onLine) continue;
+    const v = cur.horiz ? p.x : p.y;
+    if (erased.some((e) => Math.abs(e - v) < EPS)) return true;
+  }
+  return false;
 }
 
 const samePoint = (a: Vec, b: Vec): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;

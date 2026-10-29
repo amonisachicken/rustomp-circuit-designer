@@ -641,7 +641,11 @@ $("#btnNew").addEventListener("click", () => {
   repaint();
 });
 
-$("#btnPreview").addEventListener("click", () => void previewPng());
+$("#btnPreview").addEventListener("click", () => {
+  void previewPng().catch((e) => {
+    $("#hint").textContent = `预览失败：${e instanceof Error ? e.message : String(e)}`;
+  });
+});
 
 $("#btnNetlist").addEventListener("click", async () => {
   await refreshNetlist();
@@ -855,21 +859,61 @@ $("#btnNetlistToggle").addEventListener("click", () => {
 });
 $("#netlistClose").addEventListener("click", () => ($("#netlistPane").hidden = true));
 
-/** 预览 = 可保存的截图（D-008） */
+/**
+ * 预览 = 可保存的截图（D-008）。
+ *
+ * 简化后的实现：把**当前视野**的 SVG 克隆出来，内联页面 CSS（否则 class 全部失效，
+ * 导出的图是黑色块），再交给浏览器自带的 SVG 光栅化（Image + canvas.drawImage）。
+ * 不做自定义渲染器，也不引入 html2canvas 之类的依赖。
+ */
+function collectExportCss(): string {
+  const rules: string[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      for (const rule of Array.from(sheet.cssRules)) rules.push(rule.cssText);
+    } catch {
+      // 跨域样式表读不到规则；本应用自己的样式表是同源的，正常不会走到这里
+    }
+  }
+  // SVG 作为独立图片渲染时没有 body，字体要显式给
+  const base = `svg { font-family: -apple-system, "Helvetica Neue", "PingFang SC", sans-serif; }`;
+  return `${base}\n${rules.join("\n")}`;
+}
+
+let previewPngUrl: string | null = null;
+
 async function previewPng(): Promise<void> {
   const dlg = $<HTMLDialogElement>("#preview");
   const box = $("#previewImg");
   const bg = "#ffffff";
-  const w = canvas.clientWidth || 1200;
-  const h = canvas.clientHeight || 800;
+  const w = Math.max(1, canvas.clientWidth || 1200);
+  const h = Math.max(1, canvas.clientHeight || 800);
+  const k = 2; // 以 2× 原生分辨率光栅化，避免放大糊
 
   const clone = canvas.cloneNode(true) as SVGSVGElement;
-  clone.querySelector(".grid")?.remove();
-  for (const n of clone.querySelectorAll(".pins")) n.remove();
+  // 去掉 HTML 侧的 id/CSS 依赖；临时叠层不进截图
+  clone.removeAttribute("id");
+  clone.removeAttribute("style");
+  for (const n of clone.querySelectorAll(".grid, .pins, .ghost, .dangling, line.preview")) n.remove();
+  for (const n of clone.querySelectorAll(".hovered")) n.classList.remove("hovered");
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  clone.setAttribute("width", `${w}`);
-  clone.setAttribute("height", `${h}`);
-  clone.insertAdjacentHTML("afterbegin", `<rect width="100%" height="100%" fill="${bg}"/>`);
+  clone.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  clone.setAttribute("width", `${w * k}`);
+  clone.setAttribute("height", `${h * k}`);
+
+  // ① 内联样式：没有这一步，`.wires line` / `.parts text` 等规则不会被 SVG 图片继承
+  const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+  style.textContent = collectExportCss();
+  clone.insertBefore(style, clone.firstChild);
+
+  // ② 背景（在图形之下）
+  const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  bgRect.setAttribute("x", "0");
+  bgRect.setAttribute("y", "0");
+  bgRect.setAttribute("width", `${w}`);
+  bgRect.setAttribute("height", `${h}`);
+  bgRect.setAttribute("fill", bg);
+  clone.insertBefore(bgRect, style.nextSibling);
 
   const svgText = new XMLSerializer().serializeToString(clone);
   const url = URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml" }));
@@ -877,10 +921,10 @@ async function previewPng(): Promise<void> {
     const img = new Image();
     await new Promise<void>((res, rej) => {
       img.onload = () => res();
-      img.onerror = () => rej(new Error("截图失败：SVG 里有外部引用？"));
+      img.onerror = () => rej(new Error("浏览器无法光栅化这张 SVG（检查是否有外部引用）"));
       img.src = url;
     });
-    const k = 2; // 2× 像素比
+
     const cv = document.createElement("canvas");
     cv.width = w * k;
     cv.height = h * k;
@@ -889,13 +933,16 @@ async function previewPng(): Promise<void> {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.drawImage(img, 0, 0, cv.width, cv.height);
+
     const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
     if (!blob) throw new Error("toBlob 失败");
-    const pngUrl = URL.createObjectURL(blob);
-    box.innerHTML = `<img src="${pngUrl}" alt="预览">`;
+
+    if (previewPngUrl) URL.revokeObjectURL(previewPngUrl);
+    previewPngUrl = URL.createObjectURL(blob);
+    box.innerHTML = `<img src="${previewPngUrl}" alt="预览">`;
     $<HTMLButtonElement>("#previewSave").onclick = () => {
       const a = document.createElement("a");
-      a.href = pngUrl;
+      a.href = previewPngUrl!;
       a.download = `${doc.name}.png`;
       a.click();
     };

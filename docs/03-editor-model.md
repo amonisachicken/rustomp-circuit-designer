@@ -256,7 +256,7 @@ type Command =
 |---|---|---|
 | `*.design.json` | `Document`（§1） | **编辑器的原生格式**，可版本化、可 diff |
 | `<name>.cir` | SPICE 网表 + `* @rustomp` 指令（**单份**，D-007） | 交给 `rustomp-import`；也可被 ngspice 直接仿真 |
-| `<name>.png` | 预览截图（D-008） | 存档 / 发给别人 |
+| `<name>.png` | 当前视野的预览截图，2× 像素（D-008） | 存档 / 发给别人 |
 | `*.svg` | 图纸导出（栅格 + 符号 + 标注） | 打印/分享 |
 | `*.netlist.json` | 网表的结构化形式（元件/网络/端口） | 调试、其它工具消费 |
 

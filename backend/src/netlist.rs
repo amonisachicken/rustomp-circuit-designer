@@ -301,6 +301,37 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
             lints.push(err("model-missing", format!("{}：没选型号（{} 之一）", part.r#ref, sym.models.join("/"))));
         }
 
+        // 电位器的阻值范围：`1M`（本意 1 MΩ）在 SPICE 里是 1 mΩ，
+        // 会让整个偏置网络被钉死，而且**导出不报错**（下游 Freedist 报告 P2）。
+        if part.symbol == "potentiometer" {
+            if let Some(raw) = &part.value {
+                match panel_value_ohms(raw) {
+                    Some(r) if r >= 1.0 && r <= 1e9 => {}
+                    // 只看"以 m 结尾"的写法（`meg`/`mil` 不是），避免把 `0` / `0.5` 也当成笔误
+                    Some(r) if looks_like_mega_typo(raw) && r > 0.0 => lints.push(warn(
+                        "pot-value-milli",
+                        format!(
+                            "{}：电位器阻值 `{raw}` 在 SPICE 里是 {r} Ω（`M` = milli）；\
+                             导出时已按 **meg** 处理。建议直接写 `{}meg`。",
+                            part.r#ref,
+                            raw.trim().trim_end_matches(&['M', 'm'][..])
+                        ),
+                    )),
+                    Some(r) => lints.push(err(
+                        "pot-value-range",
+                        format!(
+                            "{}：电位器阻值 `{raw}` = {r} Ω，超出合理范围（1 Ω … 1 GΩ）。",
+                            part.r#ref
+                        ),
+                    )),
+                    None => lints.push(err(
+                        "pot-value-bad",
+                        format!("{}：电位器阻值 `{raw}` 读不出数值", part.r#ref),
+                    )),
+                }
+            }
+        }
+
         for pin in &sym.pins {
             let at = to_world(pin.at, part);
             dsu.find(key(at)); // 落点入表
@@ -486,6 +517,9 @@ fn half_value(value: &str) -> String {
         Some(i) => t.split_at(i),
         None => (t, ""),
     };
+    // `M` 在 SPICE 里是 **milli**，但电位器面板上写 `1M` 显然是 1 MΩ。
+    // 电位器不存在 mΩ 量级的合法值，所以这里**只对电位器**把 M 规范成 meg。
+    let unit = if unit.eq_ignore_ascii_case("m") { "meg" } else { unit };
     match num.parse::<f64>() {
         Ok(v) => {
             let h = v / 2.0;
@@ -496,6 +530,43 @@ fn half_value(value: &str) -> String {
         }
         Err(_) => value.to_string(),
     }
+}
+
+/// 面板上的阻值文本 → 欧姆（与 SPICE 后缀一致；`M` 按 milli 解释，与 SPICE 相同）。
+///
+/// 刻意**不在这里**把 M 当 mega：那会让"1M 到底是 milli 还是 mega"变成两套规则。
+/// 规范化的地方只有一处 —— `half_value()`（导出网表时对电位器生效），
+/// 另外 `pot_value_lint()` 会在导出前提示用户改成 `meg`。
+fn panel_value_ohms(value: &str) -> Option<f64> {
+    let t = value.trim().to_ascii_lowercase();
+    let split = t.find(|c: char| !(c.is_ascii_digit() || c == '.' || c == '-' || c == '+' || c == 'e'));
+    let (num, unit) = match split {
+        Some(i) => t.split_at(i),
+        None => (t.as_str(), ""),
+    };
+    let v: f64 = num.parse().ok()?;
+    let mult = if unit.starts_with("meg") {
+        1e6
+    } else if unit.starts_with("mil") {
+        25.4e-6
+    } else {
+        match unit.chars().next() {
+            Some('t') => 1e12,
+            Some('g') => 1e9,
+            Some('k') => 1e3,
+            Some('m') => 1e-3,
+            Some('u') => 1e-6,
+            Some('n') => 1e-9,
+            Some('p') => 1e-12,
+            _ => 1.0,
+        }
+    };
+    Some(v * mult)
+}
+
+/// `1M` / `0.5m` 这种"以 m 结尾"的写法（`meg` / `mil` 不是）。
+fn looks_like_mega_typo(raw: &str) -> bool {
+    raw.trim().to_ascii_lowercase().ends_with('m')
 }
 
 fn dsu_root(dsu: &Dsu, k: (i64, i64)) -> (i64, i64) {
@@ -652,6 +723,49 @@ R2 IN OUT 10k
         let nodes: Vec<&str> = line.split_whitespace().collect();
         assert_eq!(nodes.len(), 6, "M1 <d> <g> <s> <b> <model>：{line}");
         assert_eq!(nodes[3], nodes[4], "衬底应等于源极：{line}");
+    }
+
+    /// P2：`1M` 在 SPICE 里是 1 mΩ。电位器值写 `1M` 时：
+    /// ① 导出网表把单位规范成 `meg`（面板上写 1M 显然是 1 MΩ）；
+    /// ② 同时给一条 `pot-value-range` 的 error，让用户知道该写 `1meg`。
+    #[test]
+    fn 电位器的一兆欧写法被规范化并报错() {
+        let mut pot = part("p1", "P1", "potentiometer", 0.0, 0.0, 0);
+        pot.value = Some("1M".into());
+        let d = Document {
+            name: "pot".into(),
+            parts: vec![pot, part("p2", "GND1", "earth", -12.5, 12.5, 0), part("p3", "IN1", "node-in", 25.0, 0.0, 0)],
+            wires: vec![],
+        };
+        let g = generate(&d, &table());
+        // 规范化：写成 0.5meg 而不是 0.5M
+        assert!(g.cir.contains("0.5meg"), "实际：\n{}", g.cir);
+        assert!(!g.cir.contains("0.5M"), "不该再把 M 当 mega 之外的单位：\n{}", g.cir);
+        // 报错：提示用户改成 meg
+        let lint = g
+            .lints
+            .iter()
+            .find(|l| l.code == "pot-value-milli")
+            .expect("应有 pot-value-milli 提示");
+        assert!(lint.msg.contains("1meg"), "提示应给出正确写法：{}", lint.msg);
+    }
+
+    #[test]
+    fn 电位器的正常阻值不报错() {
+        let mut pot = part("p1", "P1", "potentiometer", 0.0, 0.0, 0);
+        pot.value = Some("500k".into());
+        let d = Document {
+            name: "pot".into(),
+            parts: vec![pot, part("p2", "GND1", "earth", -12.5, 12.5, 0), part("p3", "IN1", "node-in", 25.0, 0.0, 0)],
+            wires: vec![],
+        };
+        let g = generate(&d, &table());
+        assert!(
+            !g.lints.iter().any(|l| l.code == "pot-value-range"),
+            "500k 是合法电位器值，不该报错：{:?}",
+            g.lints
+        );
+        assert!(g.cir.contains("250k"), "实际：\n{}", g.cir);
     }
 
     #[test]

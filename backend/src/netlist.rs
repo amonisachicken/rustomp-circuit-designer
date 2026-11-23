@@ -43,6 +43,19 @@ pub struct Part {
     pub rot: i32,
     #[serde(default = "no_mirror")]
     pub mirror: String,
+    // ---- 变压器专用（其它符号忽略；全部有默认值，老文件不受影响）----
+    /// 匝比 `n_p / n_s`（默认 2 → 次级电感 = 初级 / 4）
+    #[serde(default)]
+    pub ratio: Option<f64>,
+    /// 耦合系数（默认 0.999；必须是 0 < k < 1）
+    #[serde(default)]
+    pub k: Option<f64>,
+    /// 初级抽头位置（0..1，默认 0.5；从**打点端**量起）
+    #[serde(default)]
+    pub tap_p: Option<f64>,
+    /// 次级抽头位置（0..1，默认 0.5）
+    #[serde(default)]
+    pub tap_s: Option<f64>,
 }
 
 fn no_mirror() -> String {
@@ -466,6 +479,103 @@ pub fn generate(doc: &Document, table: &SymbolTable) -> Generated {
             cir.push_str(&format!("R{}B {} {} {half}\n", p.r#ref, nodes[1], nodes[2]));
             continue;
         }
+        // 电感：`L<ref> a b <value>`（绕线电阻请另外画一个电阻 —— ngspice 的 L 没有 DCR 参数）
+        if p.symbol == "inductor" && nodes.len() == 2 {
+            let v = p.value.clone().unwrap_or_else(|| "10m".into());
+            cir.push_str(&format!("{} {} {} {v}\n", p.r#ref, nodes[0], nodes[1]));
+            continue;
+        }
+
+        // ---- 变压器：展开成 4 个绕组 + 6 条耦合（docs/05 §5.1）----
+        //
+        // 6 脚 = 初级(上/抽头/下) + 次级(上/抽头/下)，抽头像电位器一样按比例分：
+        //   L_上段 = a²·L_total，L_下段 = (1−a)²·L_total（a 从**打点端**量起）
+        // 同一绕组的两个半段用 k=0.9999 耦合（k=1 会让电感矩阵奇异），
+        // 初/次级之间用用户给的 k。
+        if p.symbol == "transformer" && nodes.len() == 6 {
+            let raw_l = p.value.clone().unwrap_or_else(|| "1".into());
+            let Some(lp) = panel_value_ohms(&raw_l) else {
+                lints.push(err(
+                    "inductor-value",
+                    format!("{}：读不出初级电感 `{raw_l}`（单位 H，可写 `1`/`500m`）", p.r#ref),
+                ));
+                continue;
+            };
+            let ratio = p.ratio.unwrap_or(2.0);
+            let k = p.k.unwrap_or(0.999);
+            let tap_p = p.tap_p.unwrap_or(0.5);
+            let tap_s = p.tap_s.unwrap_or(0.5);
+            let mut bad = false;
+            if !(lp > 0.0 && lp.is_finite()) {
+                lints.push(err(
+                    "transformer-l",
+                    format!("{}：初级电感必须 > 0（收到 `{raw_l}`）", p.r#ref),
+                ));
+                bad = true;
+            }
+            if !(ratio > 0.0 && ratio.is_finite()) {
+                lints.push(err(
+                    "transformer-ratio",
+                    format!("{}：匝比必须 > 0（收到 {ratio}）", p.r#ref),
+                ));
+                bad = true;
+            }
+            if !(k > 0.0 && k < 1.0) {
+                lints.push(err(
+                    "transformer-k",
+                    format!("{}：耦合系数必须 0 < k < 1（收到 {k}）；紧耦合请拆励磁电感 + 漏感", p.r#ref),
+                ));
+                bad = true;
+            }
+            for (what, a) in [("初级", tap_p), ("次级", tap_s)] {
+                if !(a > 0.0 && a < 1.0) {
+                    lints.push(err(
+                        "transformer-tap",
+                        format!(
+                            "{}：{what}抽头位置必须 0 < a < 1（收到 {a}）—— 贴到端点会得到 0 H 的绕组",
+                            p.r#ref
+                        ),
+                    ));
+                    bad = true;
+                }
+            }
+            if bad {
+                continue;
+            }
+            let ls = lp / (ratio * ratio);
+            let (lpa, lpb) = (lp * tap_p * tap_p, lp * (1.0 - tap_p) * (1.0 - tap_p));
+            let (lsa, lsb) = (ls * tap_s * tap_s, ls * (1.0 - tap_s) * (1.0 - tap_s));
+            let (a, at, b, c, ct, d) = (&nodes[0], &nodes[1], &nodes[2], &nodes[3], &nodes[4], &nodes[5]);
+            let n = &p.r#ref; // 例如 T1 → 元件名 LT1A / KT1A
+            cir.push_str(&format!(
+                "* 变压器 {n}：初级 {}·{:.0}%，次级 {}·{:.0}%，匝比 {ratio}:1，k={k}\n",
+                p.value.clone().unwrap_or_else(|| "1".into()),
+                tap_p * 100.0,
+                fmt_num(ls),
+                tap_s * 100.0
+            ));
+            cir.push_str(&format!("L{n}A {a} {at} {}\n", fmt_num(lpa)));
+            cir.push_str(&format!("L{n}B {at} {b} {}\n", fmt_num(lpb)));
+            cir.push_str(&format!("L{n}C {c} {ct} {}\n", fmt_num(lsa)));
+            cir.push_str(&format!("L{n}D {ct} {d} {}\n", fmt_num(lsb)));
+            // 6 条耦合：同绕组半段用 0.9999，跨绕组用用户 k
+            let pairs = [
+                ("A", "B", 0.9999_f64),
+                ("C", "D", 0.9999),
+                ("A", "C", k),
+                ("A", "D", k),
+                ("B", "C", k),
+                ("B", "D", k),
+            ];
+            for (i, (x, y, kk)) in pairs.iter().enumerate() {
+                cir.push_str(&format!(
+                    "K{n}{} L{n}{x} L{n}{y} {kk}\n",
+                    (b'A' + i as u8) as char
+                ));
+            }
+            continue;
+        }
+
         // 电源符号（voltage-source）：DC 值
         if p.symbol == "voltage-source" {
             let v = p.value.clone().unwrap_or_else(|| "9".into());
@@ -537,6 +647,26 @@ fn half_value(value: &str) -> String {
 /// 刻意**不在这里**把 M 当 mega：那会让"1M 到底是 milli 还是 mega"变成两套规则。
 /// 规范化的地方只有一处 —— `half_value()`（导出网表时对电位器生效），
 /// 另外 `pot_value_lint()` 会在导出前提示用户改成 `meg`。
+/// 数值 → SPICE 文本：最多 9 位小数、去尾零；太大/太小用科学计数法。
+///
+/// 用于变压器展开出来的电感值（`0.0625` / `2.5e-1` 都能被 ngspice 读），
+/// 保持**确定性**（同一份设计永远生成同样的字节）。
+fn fmt_num(v: f64) -> String {
+    if !v.is_finite() {
+        return "0".into();
+    }
+    if v != 0.0 && (v.abs() < 1e-6 || v.abs() >= 1e7) {
+        return format!("{v:e}");
+    }
+    let s = format!("{v:.9}");
+    let s = s.trim_end_matches('0').trim_end_matches('.');
+    if s.is_empty() || s == "-0" {
+        "0".into()
+    } else {
+        s.to_string()
+    }
+}
+
 fn panel_value_ohms(value: &str) -> Option<f64> {
     let t = value.trim().to_ascii_lowercase();
     let split = t.find(|c: char| !(c.is_ascii_digit() || c == '.' || c == '-' || c == '+' || c == 'e'));
@@ -603,6 +733,10 @@ mod tests {
             at: Pt { x, y },
             rot,
             mirror: "none".into(),
+            ratio: None,
+            k: None,
+            tap_p: None,
+            tap_s: None,
         }
     }
 
@@ -766,6 +900,113 @@ R2 IN OUT 10k
             g.lints
         );
         assert!(g.cir.contains("250k"), "实际：\n{}", g.cir);
+    }
+
+    /// 变压器：6 脚（初/次级各带中心抽头）→ 4 个绕组 + 6 条耦合。
+    #[test]
+    fn 变压器展开成四个绕组和六条耦合() {
+        let mut t = part("p1", "T1", "transformer", 0.0, 0.0, 0);
+        t.value = Some("1".into()); // 初级 1 H
+        t.ratio = Some(2.0); // 匝比 2:1 → 次级 0.25 H
+        let d = Document {
+            name: "tr".into(),
+            parts: vec![
+                t,
+                part("p2", "GND1", "earth", -12.5, 12.5, 0),
+                part("p3", "IN1", "node-in", 0.0, 0.0, 0),
+                part("p4", "OUT1", "node-out", 20.0, 0.0, 0),
+            ],
+            wires: vec![],
+        };
+        let g = generate(&d, &table());
+        assert!(
+            g.cir.contains("* @rustomp in=IN out=OUT"),
+            "端口指令要照常生成：\n{}",
+            g.cir
+        );
+        // 抽头默认 50%：初级两段各 0.25 H，次级两段各 0.0625 H
+        let l_lines: Vec<&str> = g.cir.lines().filter(|l| l.starts_with("LT1")).collect();
+        assert_eq!(l_lines.len(), 4, "应有 4 个绕组：\n{}", g.cir);
+        assert!(g.cir.contains("0.25"), "初级半段应是 0.25 H：\n{}", g.cir);
+        assert!(g.cir.contains("0.0625"), "次级半段应是 0.0625 H：\n{}", g.cir);
+        println!("\n----- 生成的网表 -----\n{}-----", g.cir);
+        // 6 条 K：同绕组 0.9999 ×2 + 跨绕组 k=0.999 ×4
+        let k_lines: Vec<&str> = g.cir.lines().filter(|l| l.starts_with("KT1")).collect();
+        assert_eq!(k_lines.len(), 6, "应有 6 条耦合：\n{}", g.cir);
+        assert_eq!(k_lines.iter().filter(|l| l.ends_with("0.9999")).count(), 2);
+        assert_eq!(k_lines.iter().filter(|l| l.ends_with("0.999")).count(), 4);
+        // 不应有未支持的元件提示
+        assert!(
+            !g.lints.iter().any(|l| matches!(l.level, Level::Error)),
+            "不该有 error：{:?}",
+            g.lints
+        );
+    }
+
+    /// 抽头位置可滑：a=0.3 时上段 0.09·L、下段 0.49·L。
+    #[test]
+    fn 变压器抽头位置影响分段电感() {
+        let mut t = part("p1", "T1", "transformer", 0.0, 0.0, 0);
+        t.value = Some("1".into());
+        t.ratio = Some(1.0); // 1:1 → 次级也是 1 H
+        t.tap_p = Some(0.3);
+        t.tap_s = Some(0.7);
+        let d = Document {
+            name: "tr".into(),
+            parts: vec![t, part("p2", "GND1", "earth", -12.5, 12.5, 0)],
+            wires: vec![],
+        };
+        let g = generate(&d, &table());
+        assert!(g.cir.contains("LT1A"), "{}", g.cir);
+        // 初级：0.09 / 0.49；次级：0.49 / 0.09（1:1，抽头位置反过来）
+        let lines: Vec<&str> = g.cir.lines().filter(|l| l.starts_with("LT1")).collect();
+        assert!(lines[0].ends_with("0.09"), "初级上段：{}", lines[0]);
+        assert!(lines[1].ends_with("0.49"), "初级下段：{}", lines[1]);
+        assert!(lines[2].ends_with("0.49"), "次级上段：{}", lines[2]);
+        assert!(lines[3].ends_with("0.09"), "次级下段：{}", lines[3]);
+    }
+
+    /// 参数越界必须报错（k=1 / 抽头贴端点 / 匝比 0）。
+    #[test]
+    fn 变压器参数越界报错() {
+        for (ratio, k, tap) in [(2.0, 1.0, 0.5), (2.0, 0.999, 1.0), (0.0, 0.999, 0.5)] {
+            let mut t = part("p1", "T1", "transformer", 0.0, 0.0, 0);
+            t.value = Some("1".into());
+            t.ratio = Some(ratio);
+            t.k = Some(k);
+            t.tap_p = Some(tap);
+            let d = Document {
+                name: "tr".into(),
+                parts: vec![t, part("p2", "GND1", "earth", -12.5, 12.5, 0)],
+                wires: vec![],
+            };
+            let g = generate(&d, &table());
+            assert!(
+                g.lints.iter().any(|l| matches!(l.level, Level::Error)),
+                "ratio={ratio} k={k} tap={tap} 应该报错"
+            );
+        }
+    }
+
+    #[test]
+    fn 电感生成一行网表() {
+        let mut l = part("p1", "L1", "inductor", 0.0, 0.0, 0);
+        l.value = Some("10m".into());
+        let d = Document {
+            name: "l".into(),
+            parts: vec![
+                l,
+                part("p2", "GND1", "earth", -12.5, 12.5, 0),
+                part("p3", "IN1", "node-in", 12.5, 0.0, 0),
+            ],
+            wires: vec![],
+        };
+        let g = generate(&d, &table());
+        assert!(
+            g.cir.lines().any(|line| line.starts_with("L1 ") && line.ends_with("10m")),
+            "应有 `L1 <a> <b> 10m`：\n{}",
+            g.cir
+        );
     }
 
     #[test]

@@ -6,6 +6,7 @@ import { drawTraces } from "./plot";
 import {
   VALUE_UNITS,
   UNIT_LABEL,
+  VALUE_UNIT_LABEL,
   emptyDoc,
   joinValue,
   normalizeWires,
@@ -492,7 +493,7 @@ function selectPart(partId: string, open: boolean): void {
             const units = VALUE_UNITS[p.symbol]!;
             const { num, unit } = splitValue(p.value, units);
             const opts = units
-              .map((u) => `<option value="${u}" ${u === unit ? "selected" : ""}>${UNIT_LABEL[u] ?? u}</option>`)
+              .map((u) => `<option value="${u}" ${u === unit ? "selected" : ""}>${VALUE_UNIT_LABEL[p.symbol]?.[u] ?? UNIT_LABEL[u] ?? u}</option>`)
               .join("");
             return `<label>数值 <input id="p-num" type="number" step="any" inputmode="decimal" value="${num}" placeholder="例如 10">
               <select id="p-unit" ${units.length === 1 ? "disabled" : ""}>${opts}</select></label>`;
@@ -504,6 +505,26 @@ function selectPart(partId: string, open: boolean): void {
         ? `<div class="row"><label>幅值</label><input id="p-amp" type="number" step="0.05" value="${p.amp ?? 0.2}"> V</div>
            <div class="row"><label>频率</label><input id="p-freq" type="number" step="100" value="${p.freq ?? 1000}"> Hz</div>
            <p class="muted" style="font-size:11px">IN 元件兼作波形发生器（只用于仿真）</p>`
+        : ""
+    }
+    ${
+      p.symbol === "transformer"
+        ? `<div class="row"><label>匝比 n<sub>p</sub>/n<sub>s</sub></label>
+             <input id="p-ratio" type="number" step="0.1" min="0.1" value="${p.ratio ?? 2}">
+           </div>
+           <div class="row"><label>耦合 k</label>
+             <input id="p-k" type="number" step="0.001" min="0.1" max="0.9999" value="${p.k ?? 0.999}">
+           </div>
+           <div class="row"><label>初级抽头</label>
+             <input id="p-tap-p" type="range" min="5" max="95" step="1" value="${Math.round((p.tap_p ?? 0.5) * 100)}">
+             <output id="p-tap-p-out">${Math.round((p.tap_p ?? 0.5) * 100)}%</output>
+           </div>
+           <div class="row"><label>次级抽头</label>
+             <input id="p-tap-s" type="range" min="5" max="95" step="1" value="${Math.round((p.tap_s ?? 0.5) * 100)}">
+             <output id="p-tap-s-out">${Math.round((p.tap_s ?? 0.5) * 100)}%</output>
+           </div>
+           <p class="muted" style="font-size:11px">6 脚：A1/AT/A2（初级）· B1/BT/B2（次级）；
+             抽头位置从小数端算起；导出时展开成 4 个绕组 + 6 条耦合</p>`
         : ""
     }
     <label>旋转 <select id="p-rot">${[0, 90, 180, 270]
@@ -538,6 +559,25 @@ function selectPart(partId: string, open: boolean): void {
     unitEl?.addEventListener("change", apply2);
   }
   bind("p-rot", (v) => (p.rot = Number(v) as Part["rot"]));
+
+  // 变压器：匝比 / 耦合 / 两个抽头（滑块像电位器一样拖）
+  bind("p-ratio", (v) => (p.ratio = Number(v)));
+  bind("p-k", (v) => (p.k = Number(v)));
+  for (const [id, key] of [
+    ["p-tap-p", "tap_p"],
+    ["p-tap-s", "tap_s"],
+  ] as const) {
+    const el = panel.querySelector<HTMLInputElement>(`#${id}`);
+    const out = panel.querySelector<HTMLOutputElement>(`#${id}-out`);
+    el?.addEventListener("input", () => {
+      if (out) out.textContent = `${el.value}%`;
+    });
+    el?.addEventListener("change", () => {
+      hooks.commit();
+      p[key] = Number(el.value) / 100;
+      repaint();
+    });
+  }
   const ampEl = panel.querySelector<HTMLInputElement>("#p-amp");
   const freqEl = panel.querySelector<HTMLInputElement>("#p-freq");
   const applySignal = (): void => {

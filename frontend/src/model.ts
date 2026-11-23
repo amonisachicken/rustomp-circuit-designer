@@ -31,6 +31,15 @@ export interface Part {
   /** 仅 `node-in` 用：兼作波形发生器的幅值（V）与频率（Hz） */
   amp?: number;
   freq?: number;
+  // ---- 变压器专用（其它符号忽略；后端都有默认值）----
+  /** 匝比 n_p/n_s（默认 2） */
+  ratio?: number;
+  /** 耦合系数（默认 0.999，必须 0<k<1） */
+  k?: number;
+  /** 初级抽头位置 0..1（默认 0.5，从打点端量起） */
+  tap_p?: number;
+  /** 次级抽头位置 0..1（默认 0.5） */
+  tap_s?: number;
 }
 
 export interface Wire {
@@ -301,6 +310,15 @@ export const VALUE_UNITS: Record<string, string[]> = {
   capacitor: ["n", "p", "u"],
   potentiometer: ["k", "Ω"],
   "voltage-source": ["V"],
+  // 电感量（H）；变压器填的是**初级总电感**
+  inductor: ["m", "u", ""],
+  transformer: ["m", "u", ""],
+};
+
+/** 单位显示名的**逐符号覆盖**（"" 在电阻里是 Ω，在电感里是 H） */
+export const VALUE_UNIT_LABEL: Record<string, Record<string, string>> = {
+  inductor: { "": "H", m: "mH", u: "µH" },
+  transformer: { "": "H", m: "mH", u: "µH" },
 };
 
 /** 数值单位的显示名（"Ω" 在 SPICE 里不写后缀） */

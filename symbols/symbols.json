@@ -127,6 +127,49 @@
       },
       "standard": "GB/T 4728.2"
     },
+    "inductor": {
+      "canvas": {
+        "h": 15.0,
+        "w": 30.0
+      },
+      "category": "passive",
+      "file": "assets/gb4728-ext/symbols/21-inductor.svg",
+      "models": [],
+      "name": {
+        "en": "Inductor",
+        "zh": "电感器"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 7.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "1"
+        },
+        {
+          "at": {
+            "x": 12.5,
+            "y": 0.0
+          },
+          "dir": "right",
+          "id": "2"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "1",
+          "2"
+        ],
+        "prefix": "L"
+      },
+      "standard": "GB/T 4728.4（线圈画法）"
+    },
     "jfet-n": {
       "canvas": {
         "h": 35.0,
@@ -696,6 +739,85 @@
         "prefix": ""
       },
       "standard": "GB/T 4728.2（示意画法）"
+    },
+    "transformer": {
+      "canvas": {
+        "h": 40.0,
+        "w": 30.0
+      },
+      "category": "passive",
+      "file": "assets/gb4728-ext/symbols/22-transformer.svg",
+      "models": [],
+      "name": {
+        "en": "次级各带中心抽头）",
+        "zh": "变压器（双绕组，初"
+      },
+      "origin": {
+        "x": 15.0,
+        "y": 20.0
+      },
+      "pins": [
+        {
+          "at": {
+            "x": -5.0,
+            "y": -15.0
+          },
+          "dir": "up",
+          "id": "A1"
+        },
+        {
+          "at": {
+            "x": -12.5,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "AT"
+        },
+        {
+          "at": {
+            "x": -5.0,
+            "y": 15.0
+          },
+          "dir": "down",
+          "id": "A2"
+        },
+        {
+          "at": {
+            "x": 5.0,
+            "y": -15.0
+          },
+          "dir": "up",
+          "id": "B1"
+        },
+        {
+          "at": {
+            "x": 12.5,
+            "y": 0.0
+          },
+          "dir": "right",
+          "id": "BT"
+        },
+        {
+          "at": {
+            "x": 5.0,
+            "y": 15.0
+          },
+          "dir": "down",
+          "id": "B2"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "A1",
+          "AT",
+          "A2",
+          "B1",
+          "BT",
+          "B2"
+        ],
+        "prefix": "T"
+      },
+      "standard": "GB/T 4728.6（示意画法）"
     },
     "vcc": {
       "canvas": {

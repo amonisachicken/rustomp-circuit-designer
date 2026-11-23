@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 电感器 / Inductor | GB/T 4728.4（线圈画法） | 画布 30 x 15 mm (2.5 mm 栅格) | 引脚: (2.5,7.5) (27.5,7.5) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="30mm" height="15mm" viewBox="0 0 30 15"><g transform="translate(15,7.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="-12.5" y1="0" x2="-6" y2="0" />
+      <path d="M -6 0 C -6 -0.83 -5.33 -1.5 -4.5 -1.5 C -3.67 -1.5 -3 -0.83 -3 0 C -3 -0.83 -2.33 -1.5 -1.5 -1.5 C -0.67 -1.5 0 -0.83 0 0 C 0 -0.83 0.67 -1.5 1.5 -1.5 C 2.33 -1.5 3 -0.83 3 0 C 3 -0.83 3.67 -1.5 4.5 -1.5 C 5.33 -1.5 6 -0.83 6 0" />
+      <line x1="6" y1="0" x2="12.5" y2="0" />
+      <g stroke="none" fill="#64748b" font-size="2.4" font-family="Consolas, monospace">
+        <text x="-11.6" y="-1.4">1</text>
+        <text x="11.6" y="-1.4" text-anchor="end">2</text>
+      </g>
+    </g>
+</svg>

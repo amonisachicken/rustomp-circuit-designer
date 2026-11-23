@@ -298,5 +298,43 @@
     },
     "models": [],
     "category": "nc"
+  },
+  "inductor": {
+    "pins": {
+      "-12.5,0": "1",
+      "12.5,0": "2"
+    },
+    "spice": {
+      "prefix": "L",
+      "pinOrder": [
+        "1",
+        "2"
+      ]
+    },
+    "models": [],
+    "category": "passive"
+  },
+  "transformer": {
+    "pins": {
+      "-5,-15": "A1",
+      "-12.5,0": "AT",
+      "-5,15": "A2",
+      "5,-15": "B1",
+      "12.5,0": "BT",
+      "5,15": "B2"
+    },
+    "spice": {
+      "prefix": "T",
+      "pinOrder": [
+        "A1",
+        "AT",
+        "A2",
+        "B1",
+        "BT",
+        "B2"
+      ]
+    },
+    "models": [],
+    "category": "passive"
   }
 }

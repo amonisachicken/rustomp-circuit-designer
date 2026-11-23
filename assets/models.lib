@@ -27,3 +27,43 @@ R1   OUTX VN  1k
 C1   OUTX VN  30u
 RO   OUTX OUT 75
 .ends OP07A
+
+* ---- 电子三极管（Koren 1996 本体；参数与 rustomp 的 devices/triode.rs 一致）----
+*
+* 为什么必须有：图纸上的电子管写成 `X1 A G K 12AX7`（SPICE 子电路实例），
+* 没有这些子电路，ngspice 会报 `unknown subckt: x1 … 12ax7`（仿真不了，但导出的 .cir 是好的）。
+*
+* 本体（Koren `Tube.lib` 1996，ngspice 写法）：
+*   E1 = Va/KP·log(1+exp(KP·(1/MU + (Vg+VCT)/sqrt(KVB + Va^2))))
+*   Ia = 2·E1^EX/KG1                （E1 > 0）
+*   `ATAN(Va/KVB)` 是五极管的写法，三极管没有；`pwrs` 是 PSpice 专有，用三目代替。
+* 四只管子的参数与框架闭集 `T12AX7 / T12AT7 / T12AU7 / T12AY7` 逐项一致，
+* 所以"设计器里仿真出来的工作点"和"插件里跑出来的"是同一台机器。
+.model D_TUBE_GRID D(IS=1N RS=1 CJO=10PF TT=1N)
+.subckt TRIODE P G C PARAMS: MU=100 EX=1.4 KG1=1060 KP=600 KVB=300 VCT=0 RGI=2000 CCG=0 CGP=0 CCP=0
+E1  7 0 VALUE = { (V(P,C)/KP)*log(1+exp(KP*(1/MU + (V(G,C)+VCT)/sqrt(KVB + V(P,C)*V(P,C))))) }
+RE1 7 0 1G
+G1  P C VALUE = { V(7) > 0 ? 2*pwr(V(7),EX)/KG1 : 0 }
+RCP P C 1G
+C1  G C {CCG}
+C2  G P {CGP}
+C3  P C {CCP}
+R1  G 5 {RGI}
+D3  5 C D_TUBE_GRID
+.ends TRIODE
+
+.subckt 12AX7 A G K
+X1 A G K TRIODE MU=100 EX=1.4 KG1=1060 KP=600 KVB=300 VCT=0 RGI=2000 CCG=2.3p CGP=2.4p CCP=0.9p
+.ends 12AX7
+
+.subckt 12AT7 A G K
+X1 A G K TRIODE MU=60 EX=1.35 KG1=460 KP=300 KVB=300 VCT=0 RGI=2000 CCG=2.3p CGP=2.2p CCP=1.0p
+.ends 12AT7
+
+.subckt 12AU7 A G K
+X1 A G K TRIODE MU=21.5 EX=1.3 KG1=1180 KP=84 KVB=300 VCT=0 RGI=2000 CCG=2.3p CGP=2.2p CCP=1.0p
+.ends 12AU7
+
+.subckt 12AY7 A G K
+X1 A G K TRIODE MU=44.16 EX=1.113 KG1=1192.4 KP=409.96 KVB=300 VCT=0.5 RGI=2000 CCG=2.0p CGP=2.0p CCP=1.0p
+.ends 12AY7

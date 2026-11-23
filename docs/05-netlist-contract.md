@@ -116,7 +116,11 @@ X1 P G K 12AX7
 - 参考编号用 `X` 前缀（`X1`、`X2`…）—— SPICE 靠首字母区分器件类型；
 - **必须选型号**（属性面板的下拉），缺型号是 error（不会生成一个没有型号的 X 实例）；
 - 灯丝只画示意，不引出引脚（3 脚：屏 / 栅 / 阴）；
-- rustomp 侧：`model_const` 认识这 4 个型号 → `net.triode(T12AX7, p, g, k)`。
+- rustomp 侧：`model_const` 认识这 4 个型号 → `net.triode(T12AX7, p, g, k)`；
+- **仿真**：`assets/models.lib` 里带了 `TRIODE` 本体 + 4 个 wrapper（参数与框架逐项一致），
+  所以"设计器里仿真出来的工作点"和"插件里跑出来的"是同一台机器。
+- ⚠️ `VCC` 标签在仿真里只是 **9 V** 的供电（`VSUP_VCC`）：电子管屏极请用
+  **voltage-source 元件**画真实高压（如 300 V），否则管子是截止的。
 
 ---
 

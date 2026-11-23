@@ -672,3 +672,40 @@ canvas 会被 taint，`toBlob` 会失败——现在会明确提示，不再假�
 
 **测试**：后端 24 项（新增 2 项：`三极管生成子电路实例`、`三极管缺型号报错`）；
 `gen-symbols.py --check` 无漂移；前端 `typecheck` / `build` 通过。
+
+---
+
+## E23 修：电子管电路「能画、能出网表，一按仿真就报错」（2026-11-24）
+
+**现象**（用户搭 tube-boost 时撞到）：
+
+```text
+Error: unknown subckt: x1 p g k 12ax7
+Simulation interrupted due to error!
+```
+
+**根因**：网表导出的 `X1 A G K 12AX7` 是**对的**（SPICE 子电路实例），
+但仿真网表末尾追加的 `assets/models.lib` 里**没有电子管的子电路定义** —— 那里只有
+二极管/BJT/JFET/MOS/OP07A。ngspice 找不到 `12AX7` 这个 subckt，于是整张网表直接中止。
+（而"导出 .cir → rustomp-import"这条路是好的，因为导入器只认型号名、不需要本体。）
+
+**修法**：在 `assets/models.lib` 里补上三极管本体 + 4 个 wrapper：
+
+```spice
+.subckt TRIODE P G C PARAMS: MU=100 EX=1.4 KG1=1060 KP=600 KVB=300 VCT=0 RGI=2000 ...
+.subckt 12AX7 A G K   ; / 12AT7 / 12AU7 / 12AY7
+```
+
+- 本体 = Koren 1996（`sqrt(KVB+Va²)`、`2·E1^EX/KG1`，没有 `ATAN` —— 那是五极管的写法）；
+- 参数与框架 `devices/triode.rs` 的 `T12AX7 / T12AT7 / T12AU7 / T12AY7` **逐项一致**，
+  这样"设计器里仿出来的工作点"和"插件里跑出来的"是同一台机器；
+- `models.lib` 是 `include_str!` 进二进制的 → 改完**必须重启后端**（我第一次验证时忘了，
+  看到的是旧库，还在报同样的错 —— 记一笔）。
+
+**回归**（`backend/src/sim.rs` 新增 2 项）：
+
+1. `电子管的仿真网表带上了子电路模型`：拼好的仿真网表必须含 `.subckt TRIODE` 与 4 个型号；
+2. `ngspice_可用时_电子管电路能仿真`：真跑 `.tran`，曲线必须有限、屏极均值在 100–280 V。
+
+**顺带提醒**：`VCC` 标签在仿真里只有 **9 V**（`VSUP_VCC`），电子管屏极要用
+voltage-source 画真实高压，否则管子截止 —— 这条写进了 `05-netlist-contract.md` §4.1。

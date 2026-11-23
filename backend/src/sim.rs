@@ -584,6 +584,84 @@ mod tests {
         assert!((0.60..0.80).contains(&mag), "fc 处应≈0.707（-3dB）：{mag}");
     }
 
+    /// **回归**：图纸里的电子管（`X1 A G K 12AX7`）必须能在仿真里跑起来。
+    ///
+    /// 之前的 bug：网表导出的 X 实例是对的，但仿真网表末尾追加的 `models.lib` 里
+    /// **没有 12AX7 等子电路** → ngspice 报 `unknown subckt: x1 … 12ax7`，
+    /// 表现就是"图纸能画、网表能出，一按仿真就报错"。
+    /// 12AX7 共阴级：**只靠引脚重合**连线（无需导线）——
+    /// RP 竖放接屏极与 HT、RK 竖放接阴极与地、HT 用 voltage-source 给 300 V。
+    fn triode_stage() -> Document {
+        let json = r#"{
+          "name":"12AX7 共阴级",
+          "parts":[
+            {"id":"p1","ref":"X1","symbol":"triode","model":"12AX7","at":{"x":0,"y":0},"rot":0,"mirror":"none"},
+            {"id":"p2","ref":"RP","symbol":"resistor","value":"100k","at":{"x":0,"y":-27.5},"rot":90,"mirror":"none"},
+            {"id":"p3","ref":"RK","symbol":"resistor","value":"1.5k","at":{"x":0,"y":27.5},"rot":90,"mirror":"none"},
+            {"id":"p4","ref":"V1","symbol":"voltage-source","value":"300","at":{"x":0,"y":-52.5},"rot":180,"mirror":"none"},
+            {"id":"p5","ref":"GND1","symbol":"earth","at":{"x":0,"y":-52.5},"rot":0,"mirror":"none"},
+            {"id":"p6","ref":"GND2","symbol":"earth","at":{"x":0,"y":52.5},"rot":0,"mirror":"none"},
+            {"id":"p7","ref":"IN1","symbol":"node-in","at":{"x":-27.5,"y":0},"rot":0,"mirror":"none"},
+            {"id":"p8","ref":"OUT1","symbol":"node-out","at":{"x":12.5,"y":-15},"rot":0,"mirror":"none"}
+          ],
+          "wires":[]}"#;
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn 电子管的仿真网表带上了子电路模型() {
+        let t = table();
+        let g = netlist::generate(&triode_stage(), &t);
+        assert!(
+            !g.lints.iter().any(|l| l.level == netlist::Level::Error),
+            "图纸不该有 error：{:?}",
+            g.lints
+        );
+        assert!(g.cir.contains("12AX7"), "网表应有 X 实例：\n{}", g.cir);
+        let sim = build_batch(&g.cir, &g.ports, AnalysisKind::Tran, &SimParams::default(), &[]).unwrap();
+        for name in ["12AY7", "12AT7", "12AU7", "12AX7"] {
+            assert!(
+                sim.contains(&format!(".subckt {name}")),
+                "仿真网表缺少 {name} 的子电路定义（ngspice 会报 unknown subckt）"
+            );
+        }
+        assert!(sim.contains(".subckt TRIODE"), "缺少三极管本体");
+    }
+
+    #[test]
+    fn ngspice_可用时_电子管电路能仿真() {
+        if Command::new(ngspice_bin()).arg("-v").output().is_err() {
+            eprintln!("跳过：没装 ngspice");
+            return;
+        }
+        let t = table();
+        let req = SimRequest {
+            doc: triode_stage(),
+            analysis: AnalysisKind::Tran,
+            params: SimParams {
+                amp: Some(0.1),
+                freq: Some(1000.0),
+                step: Some(1e-5),
+                start: Some(0.0),
+                duration: Some(0.02),
+                ..Default::default()
+            },
+            probes: vec![],
+        };
+        let r = run(&req, &t).expect("电子管电路应该能仿真");
+        // 屏极在图纸上就是 OUT 节点（OUT 元件挂在屏极上）
+        let trace = r
+            .traces
+            .iter()
+            .find(|t| t.name.eq_ignore_ascii_case("v(out)"))
+            .or_else(|| r.traces.iter().find(|t| t.y.iter().any(|y| y.abs() > 50.0)))
+            .expect("没有输出曲线");
+        assert!(trace.y.iter().all(|y| y.is_finite()), "出现非有限值");
+        // 12AX7 共阴级（Ra=100k / Rk=1.5k 不旁路 / 300 V）：屏极静态 ≈200 V 量级
+        let mean = trace.y.iter().sum::<f64>() / trace.y.len() as f64;
+        assert!((100.0..280.0).contains(&mean), "屏极均值 {mean:.1} V 不像一个导电的共阴级");
+    }
+
     #[test]
     fn rawfile_解析复数取模长() {
         let text = "Title: x\nFlags: complex\nNo. Variables: 2\nNo. Points: 2\nVariables:\n\t0\tfrequency\tfrequency\n\t1\tv(out)\tvoltage\nValues:\n0\t1.000000e+03,0\n\t3.000000e+00,4.000000e+00\n1\t2.000000e+03,0\n\t0.000000e+00,2.000000e+00\n";

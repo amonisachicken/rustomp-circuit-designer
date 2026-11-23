@@ -226,6 +226,9 @@ window.addEventListener("keydown", (ev) => {
     case "g":
       enterPlace("earth", table, hooks, hoverMm);
       return;
+    case "l":
+      enterPlace("inductor", table, hooks, hoverMm);
+      return;
     case "h":
       ev.preventDefault();
       $<HTMLDialogElement>("#help").showModal();
@@ -1126,9 +1129,17 @@ async function main(): Promise<void> {
     const inArt = artMap.get(table.symbols["node-in"]!.file);
     results.push(`texts-extracted=${(inArt?.texts.length ?? 0) > 0 && !inArt?.inner.includes("<text")}`);
 
-    // ⑩ g 放接地点 / h 打开帮助
+    // ⑩ g 放接地点 / l 放电感 / h 打开帮助
+    // （`mode` 的联合类型会被上一行的赋值收窄，这里统一走个小函数读，避免 TS 误判）
+    const placing = (want: string): boolean => {
+      const m = mode as Mode;
+      return m.kind === "place" && m.symbol === want;
+    };
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "g", bubbles: true }));
-    results.push(`key-g=${mode.kind === "place" && mode.symbol === "earth"}`);
+    results.push(`key-g=${placing("earth")}`);
+    mode = { kind: "view" };
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
+    results.push(`key-l=${placing("inductor")}`);
     mode = { kind: "view" };
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "h", bubbles: true }));
     results.push(`key-h=${$<HTMLDialogElement>("#help").open}`);

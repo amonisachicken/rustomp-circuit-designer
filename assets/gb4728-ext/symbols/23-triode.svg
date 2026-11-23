@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 三极管（热阴极电子管） / Triode | GB/T 4728.5（电子管） | 画布 35 x 35 mm (2.5 mm 栅格) | 引脚: (17.5,2.5) (2.5,17.5) (17.5,32.5) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="35mm" height="35mm" viewBox="0 0 35 35"><g transform="translate(17.5,17.5)" fill="none" stroke="#0f172a" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="0" cy="0" r="7" />
+      <!-- 屏极（阳极）：上方横杠 + 引线 -->
+      <line x1="-5" y1="-4.2" x2="5" y2="-4.2" />
+      <line x1="0" y1="-15" x2="0" y2="-4.2" />
+      <!-- 栅极：四段短杠 + 左引线 -->
+      <line x1="-5" y1="0" x2="-2.6" y2="0" />
+      <line x1="-1.4" y1="0" x2="1.4" y2="0" />
+      <line x1="2.6" y1="0" x2="5" y2="0" />
+      <line x1="-15" y1="0" x2="-5" y2="0" />
+      <!-- 阴极：下方横杠 + 引线 -->
+      <line x1="-5" y1="4.2" x2="5" y2="4.2" />
+      <line x1="0" y1="4.2" x2="0" y2="15" />
+      <!-- 灯丝（示意，不引出引脚） -->
+      <path d="M -3.2 4.9 L 0 6.4 L 3.2 4.9" stroke-width="0.35" />
+      <g stroke="none" fill="#64748b" font-size="2.4" font-family="Consolas, monospace">
+        <text x="1.6" y="-11.2">A</text>
+        <text x="-12.6" y="-1.4">G</text>
+        <text x="1.6" y="13.4">K</text>
+      </g>
+    </g>
+</svg>

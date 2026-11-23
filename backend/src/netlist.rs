@@ -988,6 +988,58 @@ R2 IN OUT 10k
         }
     }
 
+    /// 三极管：`X<ref> A G K <型号>`（SPICE 子电路实例，型号来自 `symbols.json` 的 models 列表）。
+    #[test]
+    fn 三极管生成子电路实例() {
+        let mut v1 = part("p1", "X1", "triode", 0.0, 0.0, 0);
+        v1.model = Some("12AX7".into());
+        let d = Document {
+            name: "tube".into(),
+            parts: vec![
+                v1,
+                part("p2", "GND1", "earth", -12.5, 12.5, 0),
+                part("p3", "IN1", "node-in", 0.0, 0.0, 0),
+            ],
+            wires: vec![],
+        };
+        let g = generate(&d, &table());
+        let line = g
+            .cir
+            .lines()
+            .find(|l| l.starts_with("X1 "))
+            .unwrap_or_else(|| panic!("没有 X1 行：\n{}", g.cir));
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        assert_eq!(cols.len(), 5, "应为 `X1 A G K 12AX7`：{line}");
+        assert_eq!(cols[4], "12AX7");
+        assert!(
+            !g.lints.iter().any(|l| matches!(l.level, Level::Error)),
+            "不该有 error：{:?}",
+            g.lints
+        );
+    }
+
+    /// 三极管没选型号 → 必须报错（不能生成一个没有型号的 X 实例）。
+    #[test]
+    fn 三极管缺型号报错() {
+        let d = Document {
+            name: "tube".into(),
+            parts: vec![
+                part("p1", "X1", "triode", 0.0, 0.0, 0),
+                part("p2", "GND1", "earth", -12.5, 12.5, 0),
+                part("p3", "IN1", "node-in", 0.0, 0.0, 0),
+            ],
+            wires: vec![],
+        };
+        let g = generate(&d, &table());
+        assert!(
+            g.lints
+                .iter()
+                .any(|l| matches!(l.level, Level::Error) && l.code == "model-missing"),
+            "缺型号应报 model-missing：{:?}",
+            g.lints
+        );
+    }
+
     #[test]
     fn 电感生成一行网表() {
         let mut l = part("p1", "L1", "inductor", 0.0, 0.0, 0);

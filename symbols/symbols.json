@@ -819,6 +819,63 @@
       },
       "standard": "GB/T 4728.6（示意画法）"
     },
+    "triode": {
+      "canvas": {
+        "h": 35.0,
+        "w": 35.0
+      },
+      "category": "tube",
+      "file": "assets/gb4728-ext/symbols/23-triode.svg",
+      "models": [
+        "12AX7",
+        "12AT7",
+        "12AU7",
+        "12AY7"
+      ],
+      "name": {
+        "en": "Triode",
+        "zh": "三极管（热阴极电子管）"
+      },
+      "origin": {
+        "x": 17.5,
+        "y": 17.5
+      },
+      "pins": [
+        {
+          "at": {
+            "x": 0.0,
+            "y": -15.0
+          },
+          "dir": "up",
+          "id": "A"
+        },
+        {
+          "at": {
+            "x": -15.0,
+            "y": 0.0
+          },
+          "dir": "left",
+          "id": "G"
+        },
+        {
+          "at": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "dir": "down",
+          "id": "K"
+        }
+      ],
+      "spice": {
+        "pinOrder": [
+          "A",
+          "G",
+          "K"
+        ],
+        "prefix": "X"
+      },
+      "standard": "GB/T 4728.5（电子管）"
+    },
     "vcc": {
       "canvas": {
         "h": 22.5,

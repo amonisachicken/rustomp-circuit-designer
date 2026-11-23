@@ -651,3 +651,24 @@ canvas 会被 taint，`toBlob` 会失败——现在会明确提示，不再假�
 
 **验收**：`npm run typecheck` / `npm run build` 通过；后端 22 项测试不受影响；
 浏览器 `?selftest=1&load=lowpass` 的项数从 33 → 34（多一条 `key-l=`）。
+
+---
+
+## E22 电子三极管符号（3 脚 + 4 型号，2026-11-24）
+
+**背景**：rustomp 加了电子管器件模型（Koren 三极管，5 只闭集），设计器要能画。
+
+- **素材**（`assets/gb4728-ext/symbols/23-triode.svg`，自绘）：GB/T 4728.5 画法 ——
+  圆 + 屏极横杠（上）+ 栅极短杠（中，左引线）+ 阴极横杠（下）+ 灯丝示意；
+  **3 脚** `A/G/K` 落在 2.5 mm 栅格（`(0,-15) (-15,0) (0,15)`，画布 35×35、原点 17.5,17.5）。
+  符号数 20 → **21**。
+- **overrides**：`spice.prefix = "X"`、`pinOrder = [A,G,K]`、
+  `models = [12AX7, 12AT7, 12AU7, 12AY7]`（D-026：不放 6SN7）。
+- **网表**：走通用 X 实例路径 → `X1 <A> <G> <K> 12AX7`；缺型号是 `model-missing` error。
+- **属性面板**：不用改代码 —— `models` 非空时自动出「型号」下拉（和二极管/BJT 一样）；
+  三极管没有「数值」字段（`VALUE_UNITS` 里没有它）。
+- **跨仓验证**：设计器格式的网表（`X1 P G K 12AX7`）喂给 `rustomp-import --mna` →
+  `net.triode(T12AX7, node::P, node::G, node::K)` ✓。
+
+**测试**：后端 24 项（新增 2 项：`三极管生成子电路实例`、`三极管缺型号报错`）；
+`gen-symbols.py --check` 无漂移；前端 `typecheck` / `build` 通过。

@@ -336,5 +336,27 @@
     },
     "models": [],
     "category": "passive"
+  },
+  "triode": {
+    "pins": {
+      "0,-15": "A",
+      "-15,0": "G",
+      "0,15": "K"
+    },
+    "spice": {
+      "prefix": "X",
+      "pinOrder": [
+        "A",
+        "G",
+        "K"
+      ]
+    },
+    "models": [
+      "12AX7",
+      "12AT7",
+      "12AU7",
+      "12AY7"
+    ],
+    "category": "tube"
   }
 }

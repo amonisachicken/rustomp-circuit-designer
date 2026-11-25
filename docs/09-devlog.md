@@ -709,3 +709,23 @@ Simulation interrupted due to error!
 
 **顺带提醒**：`VCC` 标签在仿真里只有 **9 V**（`VSUP_VCC`），电子管屏极要用
 voltage-source 画真实高压，否则管子截止 —— 这条写进了 `05-netlist-contract.md` §4.1。
+
+---
+
+## E24 发版 v0.2.1（2026-11-24）
+
+`v0.2.0` 之后的两笔一起发：
+
+| 内容 | 提交 |
+|---|---|
+| 电子三极管符号（GB/T 4728.5 画法，3 脚 + 4 型号下拉） | `d55f508` |
+| 仿真模型库补电子管子电路（修 `unknown subckt: 12ax7`） | `7f2fe1e` |
+
+**为什么是 patch 而不是 minor**：`v0.2.0` 的契约（符号 / 网表 / 参数）一行没改，
+新符号只是往同一套机制里多注册一个条目（`overrides.json` 的 `models` / `pins` / `spice`），
+生成的网表仍是 `X<ref> A G K <型号>`。所以按语义只动 patch。
+
+**配套**：框架 `rustomp v0.1.5`（三极管器件模型 + `docs/tube-design.md`）。
+插件的 `[requires] designer = ">=0.2"` 依然满足。
+
+符号总数 21，后端测试 26 项（`cargo test --release` 全绿），`gen-symbols.py --check` 无漂移。
